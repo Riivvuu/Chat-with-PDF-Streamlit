@@ -6,7 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
-api_key = st.secrets
+api_key = st.secrets["GOOGLE_API_KEY"]
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/gemini-embedding-001", google_api_key=api_key
 )
