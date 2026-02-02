@@ -14,7 +14,7 @@ model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key
 )
 
-st.title("📄 IITM BS RAG Chatbot")
+st.title("RAG Chatbot")
 
 # 2. Initialize Memory (Session State)
 if "vector_store" not in st.session_state:
