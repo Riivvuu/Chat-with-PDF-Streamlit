@@ -71,7 +71,7 @@ def user_input(user_question):
     docs = new_db.similarity_search(user_question)
     chain = get_conversational_chain()
     response = chain.invoke({"context": docs, "question": user_question})
-    st.write("Reply: ", response["output_text"])
+    st.write("Reply: ", response)
 
 
 def main():
