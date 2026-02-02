@@ -1,6 +1,7 @@
 import streamlit as st
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_community.vectorstores import FAISS
+from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_classic.chains.question_answering import load_qa_chain
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
@@ -8,7 +9,9 @@ from pypdf import PdfReader
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
 api_key = st.secrets["GOOGLE_API_KEY"]
 embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001", google_api_key=api_key
+    model="models/gemini-embedding-001",
+    google_api_key=api_key,
+    task_type="retrieval_document",
 )
 model = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key
@@ -37,7 +40,12 @@ with st.sidebar:
             splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = splitter.split_text(text)
 
-            vector_store = FAISS.from_texts(chunks, embedding=embeddings)
+            vector_store = FAISS.from_texts(
+                chunks,
+                embedding=embeddings,
+                distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
+                normalize_L2=True,
+            )
             st.session_state.vector_store = vector_store
             st.success("Document processed!")
 
@@ -55,7 +63,7 @@ if prompt := st.chat_input("Ask a question about the PDF"):
             st.markdown(prompt)
 
         # RAG Retrieval
-        docs = st.session_state.vector_store.similarity_search(prompt)
+        docs = st.session_state.vector_store.similarity_search(prompt, k=5)
         chain = load_qa_chain(model, chain_type="stuff")
         response = chain.run(input_documents=docs, question=prompt)
 
