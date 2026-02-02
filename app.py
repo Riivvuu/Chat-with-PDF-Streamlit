@@ -34,9 +34,7 @@ with st.sidebar:
                 [page.extract_text() for page in reader.pages if page.extract_text()]
             )
 
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=5000, chunk_overlap=500
-            )
+            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = splitter.split_text(text)
 
             vector_store = FAISS.from_texts(chunks, embedding=embeddings)
