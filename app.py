@@ -7,8 +7,12 @@ from pypdf import PdfReader
 
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
 api_key = st.secrets
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=api_key)
-model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key)
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/gemini-embedding-001", google_api_key=api_key
+)
+model = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key
+)
 
 st.title("📄 IITM BS RAG Chatbot")
 
@@ -16,23 +20,24 @@ st.title("📄 IITM BS RAG Chatbot")
 if "vector_store" not in st.session_state:
     st.session_state.vector_store = None
 if "messages" not in st.session_state:
-    st.session_state.messages =
+    st.session_state.messages = []
 
 # 3. Dynamic PDF Upload logic
 with st.sidebar:
     st.header("Document Processor")
     pdf_file = st.file_uploader("Upload a PDF to start", type="pdf")
-    
+
     if pdf_file and st.button("Process Document"):
         with st.spinner("Analyzing document..."):
-
             reader = PdfReader(pdf_file)
-            text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
-            
+            text = "".join(
+                [page.extract_text() for page in reader.pages if page.extract_text()]
+            )
 
-            splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=5000, chunk_overlap=500
+            )
             chunks = splitter.split_text(text)
-            
 
             vector_store = FAISS.from_texts(chunks, embedding=embeddings)
             st.session_state.vector_store = vector_store
