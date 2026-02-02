@@ -6,8 +6,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
-# Locally, this looks for.streamlit/secrets.toml
-# On Streamlit Cloud, you enter this in the dashboard
 api_key = st.secrets
 embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=api_key)
 model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key)
@@ -27,15 +25,15 @@ with st.sidebar:
     
     if pdf_file and st.button("Process Document"):
         with st.spinner("Analyzing document..."):
-            # Adapter: PdfReader can read the Streamlit upload object directly
+
             reader = PdfReader(pdf_file)
             text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
             
-            # Use your notebook's chunking logic
+
             splitter = RecursiveCharacterTextSplitter(chunk_size=5000, chunk_overlap=500)
             chunks = splitter.split_text(text)
             
-            # Create in-memory vector store
+
             vector_store = FAISS.from_texts(chunks, embedding=embeddings)
             st.session_state.vector_store = vector_store
             st.success("Document processed!")
