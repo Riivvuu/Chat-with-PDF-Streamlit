@@ -4,6 +4,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_classic.chains.question_answering import load_qa_chain
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+import pymupdf
 import pymupdf4llm
 
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
@@ -32,7 +33,10 @@ with st.sidebar:
 
     if pdf_file and st.button("Process Document"):
         with st.spinner("Analyzing document..."):
-            md_text = pymupdf4llm.to_markdown(pdf_file, embed_images=True)
+            file_bytes = pdf_file.read()
+            with pymupdf.open(stream=file_bytes, filetype="pdf") as doc:
+                md_text = pymupdf4llm.to_markdown(doc, embed_images=True)
+
             splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
             chunks = splitter.split_text(md_text)
 
