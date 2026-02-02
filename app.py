@@ -4,7 +4,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.vectorstores.utils import DistanceStrategy
 from langchain_classic.chains.question_answering import load_qa_chain
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from pypdf import PdfReader
+import pymupdf4llm
 
 # 1. Configuration: Accessing Cloud Secrets [6, 9]
 api_key = st.secrets["GOOGLE_API_KEY"]
@@ -32,13 +32,9 @@ with st.sidebar:
 
     if pdf_file and st.button("Process Document"):
         with st.spinner("Analyzing document..."):
-            reader = PdfReader(pdf_file)
-            text = "".join(
-                [page.extract_text() for page in reader.pages if page.extract_text()]
-            )
-
+            md_text = pymupdf4llm.to_markdown(pdf_file, embed_images=True)
             splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-            chunks = splitter.split_text(text)
+            chunks = splitter.split_text(md_text)
 
             vector_store = FAISS.from_texts(
                 chunks,
