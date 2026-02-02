@@ -1,72 +1,118 @@
 import streamlit as st
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.utils import DistanceStrategy
-from langchain_classic.chains.question_answering import load_qa_chain
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-import pymupdf
 import pymupdf4llm
+import tempfile
+import os
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+import google.generativeai as genai
+from langchain_community.vectorstores import FAISS
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import PromptTemplate
+from dotenv import load_dotenv
 
-# 1. Configuration: Accessing Cloud Secrets [6, 9]
-api_key = st.secrets["GOOGLE_API_KEY"]
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/gemini-embedding-001",
-    google_api_key=api_key,
-    task_type="retrieval_document",
-)
-model = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash", temperature=0.3, google_api_key=api_key
-)
+load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
 
-st.title("RAG Chatbot")
 
-# 2. Initialize Memory (Session State)
-if "vector_store" not in st.session_state:
-    st.session_state.vector_store = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+def get_pdf_text(pdf_docs):
+    text = ""
+    for pdf in pdf_docs:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_file.write(pdf.getbuffer())
+            tmp_path = tmp_file.name
+        try:
+            text += pymupdf4llm.to_markdown(tmp_path)
+        finally:
+            os.remove(tmp_path)
+    return text
 
-# 3. Dynamic PDF Upload logic
-with st.sidebar:
-    st.header("Document Processor")
-    pdf_file = st.file_uploader("Upload a PDF to start", type="pdf")
 
-    if pdf_file and st.button("Process Document"):
-        with st.spinner("Analyzing document..."):
-            file_bytes = pdf_file.read()
-            with pymupdf.open(stream=file_bytes, filetype="pdf") as doc:
-                md_text = pymupdf4llm.to_markdown(doc, embed_images=True)
+def get_text_chunks(text):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    chunks = text_splitter.split_text(text)
+    return chunks
 
-            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-            chunks = splitter.split_text(md_text)
 
-            vector_store = FAISS.from_texts(
-                chunks,
-                embedding=embeddings,
-                distance_strategy=DistanceStrategy.MAX_INNER_PRODUCT,
-                normalize_L2=True,
-            )
-            st.session_state.vector_store = vector_store
-            st.success("Document processed!")
+def get_vector_store(text_chunks):
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    batch_size = 50
+    initial_batch = text_chunks[:batch_size]
+    vector_store = FAISS.from_texts(initial_batch, embedding=embeddings)
 
-# 4. Chat Interface logic
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+    progress_bar = st.progress(0, text="Generating embeddings...")
+    total_batches = (len(text_chunks) + batch_size - 1) // batch_size
+    for i in range(batch_size, len(text_chunks), batch_size):
+        batch = text_chunks[i : i + batch_size]
+        vector_store.add_texts(batch)
 
-if prompt := st.chat_input("Ask a question about the PDF"):
-    if not st.session_state.vector_store:
-        st.warning("Please upload a PDF in the sidebar first.")
-    else:
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
+        current_batch = (i // batch_size) + 1
+        progress_bar.progress(
+            current_batch / total_batches,
+            text=f"Processing batch {current_batch}/{total_batches}",
+        )
 
-        # RAG Retrieval
-        docs = st.session_state.vector_store.similarity_search(prompt, k=5)
-        chain = load_qa_chain(model, chain_type="stuff")
-        response = chain.run(input_documents=docs, question=prompt)
+    vector_store.save_local("faiss_index")
+    progress_bar.empty()
+    return vector_store
 
-        with st.chat_message("assistant"):
-            st.markdown(response)
-        st.session_state.messages.append({"role": "assistant", "content": response})
+
+def get_conversational_chain():
+    prompt_template = """
+    Answer the question as detailed as possible from the provided context. If the answer is not in
+    the context, say "answer is not available in the context", do not provide a wrong answer.\n\n
+    Context:\n {context}?\n
+    Question: \n{question}\n
+    Answer:
+    """
+    model = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3)
+    prompt = PromptTemplate(
+        template=prompt_template, input_variables=["context", "question"]
+    )
+    chain = create_stuff_documents_chain(model, prompt)
+    return chain
+
+
+def user_input(user_question):
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    new_db = FAISS.load_local(
+        "faiss_index", embeddings, allow_dangerous_deserialization=True
+    )
+    docs = new_db.similarity_search(user_question)
+    chain = get_conversational_chain()
+    response = chain(
+        {"input_documents": docs, "question": user_question}, return_only_outputs=True
+    )
+    st.write("Reply: ", response["output_text"])
+
+
+def main():
+    st.set_page_config("Chat PDF")
+    st.header("RAG Chatbot")
+
+    user_question = st.text_input("Ask a Question from the PDF Files")
+
+    if user_question:
+        if os.path.exists("faiss_index"):
+            user_input(user_question)
+        else:
+            st.error("Please process the document first.")
+
+    with st.sidebar:
+        st.title("Menu:")
+        pdf_docs = st.file_uploader("Upload PDF Files", accept_multiple_files=True)
+        if st.button("Submit & Process"):
+            if pdf_docs:
+                with st.spinner("Processing..."):
+                    raw_text = get_pdf_text(pdf_docs)
+                    text_chunks = get_text_chunks(raw_text)
+                    get_vector_store(text_chunks)
+                    st.success("Vector Store Created Successfully")
+            else:
+                st.warning("Please upload at least one PDF.")
+
+
+if __name__ == "__main__":
+    main()
