@@ -3,7 +3,7 @@ import pymupdf4llm
 import tempfile
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 import google.generativeai as genai
 from langchain_community.vectorstores import FAISS
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -37,25 +37,11 @@ def get_text_chunks(text):
 
 
 def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    batch_size = 50
-    initial_batch = text_chunks[:batch_size]
-    vector_store = FAISS.from_texts(initial_batch, embedding=embeddings)
-
-    progress_bar = st.progress(0, text="Generating embeddings...")
-    total_batches = (len(text_chunks) + batch_size - 1) // batch_size
-    for i in range(batch_size, len(text_chunks), batch_size):
-        batch = text_chunks[i : i + batch_size]
-        vector_store.add_texts(batch)
-
-        current_batch = (i // batch_size) + 1
-        progress_bar.progress(
-            current_batch / total_batches,
-            text=f"Processing batch {current_batch}/{total_batches}",
-        )
-
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
-    progress_bar.empty()
     return vector_store
 
 
@@ -76,7 +62,9 @@ def get_conversational_chain():
 
 
 def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
     new_db = FAISS.load_local(
         "faiss_index", embeddings, allow_dangerous_deserialization=True
     )
