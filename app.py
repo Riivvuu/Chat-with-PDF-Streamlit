@@ -26,6 +26,7 @@ def get_pdf_text(pdf_docs):
         try:
             text += pymupdf4llm.to_markdown(tmp_path)
         finally:
+            # Ensure temp files are deleted even if processing fails
             os.remove(tmp_path)
     return text
 
@@ -41,7 +42,6 @@ def get_vector_store(text_chunks):
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
     return vector_store
 
 
@@ -57,47 +57,81 @@ def get_conversational_chain():
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
+    # Using the langchain_classic chain as requested
     chain = create_stuff_documents_chain(model, prompt)
     return chain
 
 
 def user_input(user_question):
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
-    new_db = FAISS.load_local(
-        "faiss_index", embeddings, allow_dangerous_deserialization=True
-    )
-    docs = new_db.similarity_search(user_question)
+    if st.session_state.vector_store is None:
+        return "Please process the document first."
+
+    # NOTE: The 'embeddings' initialization here was unused, so I removed it to prevent warnings.
+    # The vector_store already has the embeddings embedded.
+
+    docs = st.session_state.vector_store.similarity_search(user_question)
     chain = get_conversational_chain()
+
     response = chain.invoke({"context": docs, "question": user_question})
-    st.write("Reply: ", response)
+
+    # Chains sometimes return a string and sometimes a dict; handle both
+    return (
+        response
+        if isinstance(response, str)
+        else response.get("output_text", str(response))
+    )
 
 
 def main():
     st.set_page_config("Chat PDF")
     st.header("RAG Chatbot")
 
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "vector_store" not in st.session_state:
+        st.session_state.vector_store = None
+
     user_question = st.text_input("Ask a Question from the PDF Files")
 
     if user_question:
-        if os.path.exists("faiss_index"):
-            user_input(user_question)
+        # LOGIC FIX: Checked session_state instead of "faiss_index" file (which wasn't being created)
+        if st.session_state.vector_store is not None:
+            # Append user question to history
+            st.session_state.messages.append({"role": "user", "content": user_question})
+
+            with st.spinner("Thinking..."):
+                response = user_input(user_question)
+                st.write("Reply: ", response)
+                # Append assistant response to history
+                st.session_state.messages.append(
+                    {"role": "assistant", "content": response}
+                )
         else:
             st.error("Please process the document first.")
 
+    # Sync chat history with the UI
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
     with st.sidebar:
         st.title("Menu:")
-        pdf_docs = st.file_uploader("Upload PDF Files", accept_multiple_files=True)
+        pdf_docs = st.file_uploader(
+            "Upload PDF Files", accept_multiple_files=True, type=["pdf"]
+        )
         if st.button("Submit & Process"):
             if pdf_docs:
                 with st.spinner("Processing..."):
                     raw_text = get_pdf_text(pdf_docs)
                     text_chunks = get_text_chunks(raw_text)
-                    get_vector_store(text_chunks)
+                    st.session_state.vector_store = get_vector_store(text_chunks)
                     st.success("Vector Store Created Successfully")
             else:
                 st.warning("Please upload at least one PDF.")
+
+        if st.button("Clear Chat History"):
+            st.session_state.messages = []
+            st.rerun()
 
 
 if __name__ == "__main__":
