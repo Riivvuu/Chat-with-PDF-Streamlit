@@ -26,7 +26,6 @@ def get_pdf_text(pdf_docs):
         try:
             text += pymupdf4llm.to_markdown(tmp_path)
         finally:
-            # Ensure temp files are deleted even if processing fails
             os.remove(tmp_path)
     return text
 
@@ -57,7 +56,6 @@ def get_conversational_chain():
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
-    # Using the langchain_classic chain as requested
     chain = create_stuff_documents_chain(model, prompt)
     return chain
 
@@ -66,15 +64,11 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    # NOTE: The 'embeddings' initialization here was unused, so I removed it to prevent warnings.
-    # The vector_store already has the embeddings embedded.
-
     docs = st.session_state.vector_store.similarity_search(user_question)
     chain = get_conversational_chain()
 
     response = chain.invoke({"context": docs, "question": user_question})
 
-    # Chains sometimes return a string and sometimes a dict; handle both
     return (
         response
         if isinstance(response, str)
@@ -91,23 +85,28 @@ def main():
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = None
 
-    user_question = st.text_input("Ask a Question from the PDF Files")
-
-    if user_question:
-        # LOGIC FIX: Checked session_state instead of "faiss_index" file (which wasn't being created)
-        if st.session_state.vector_store is not None:
-            # Append user question to history
-            st.session_state.messages.append({"role": "user", "content": user_question})
-
-            with st.spinner("Thinking..."):
+    def process_input():
+        user_question = st.session_state["user_input_box"]
+        if user_question:
+            if st.session_state.vector_store is not None:
+                # Append user question to history
+                st.session_state.messages.append(
+                    {"role": "user", "content": user_question}
+                )
                 response = user_input(user_question)
-                st.write("Reply: ", response)
-                # Append assistant response to history
                 st.session_state.messages.append(
                     {"role": "assistant", "content": response}
                 )
-        else:
-            st.error("Please process the document first.")
+                st.session_state["user_input_box"] = ""
+
+            else:
+                st.error("Please process the document first.")
+
+    st.text_input(
+        "Ask a Question from the PDF Files",
+        key="user_input_box",
+        on_change=process_input,
+    )
 
     # Sync chat history with the UI
     for message in st.session_state.messages:
