@@ -84,35 +84,32 @@ def main():
         st.session_state.messages = []
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = None
-
-    def process_input():
-        user_question = st.session_state["user_input_box"]
-        if user_question:
-            if st.session_state.vector_store is not None:
-                # Append user question to history
-                st.session_state.messages.append(
-                    {"role": "user", "content": user_question}
-                )
-                response = user_input(user_question)
-                st.session_state.messages.append(
-                    {"role": "assistant", "content": response}
-                )
-                st.session_state["user_input_box"] = ""
-
-            else:
-                st.error("Please process the document first.")
-
-    st.text_input(
-        "Ask a Question from the PDF Files",
-        key="user_input_box",
-        on_change=process_input,
-    )
-
-    # Sync chat history with the UI
+    # 1. Display Chat History FIRST
+    # (This ensures old messages are shown before we check for new input)
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
+    # 2. Chat Input (Pins to Bottom)
+    # The ':= ' operator assigns the input to 'prompt' AND checks if it's not empty
+    if prompt := st.chat_input("Ask a Question from the PDF Files"):
+        # Check if PDF is processed
+        if st.session_state.vector_store is None:
+            st.error("Please process the document first.")
+        else:
+            # A. Display User Message Immediately
+            st.chat_message("user").markdown(prompt)
+            # Add to history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            # B. Get AI Response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    response = user_input(prompt)
+                    st.markdown(response)
+            # Add AI response to history
+            st.session_state.messages.append({"role": "assistant", "content": response})
+
+    # Sidebar - PDF Upload & Processing
     with st.sidebar:
         st.title("Menu:")
         pdf_docs = st.file_uploader(
