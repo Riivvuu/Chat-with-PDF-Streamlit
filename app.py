@@ -4,7 +4,7 @@ import tempfile
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_huggingface import HuggingFaceEndpoint
+from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
 from langchain_community.vectorstores import FAISS
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import PromptTemplate
@@ -55,16 +55,17 @@ def get_conversational_chain():
     Question: \n{question}\n
     Answer:
     """
-    model = HuggingFaceEndpoint(
-        repo_id="google/flan-t5-large",
+    llm = HuggingFaceEndpoint(
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
         task="text-generation",
         max_new_tokens=512,
         do_sample=False,
     )
+    chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
-    chain = create_stuff_documents_chain(model, prompt)
+    chain = create_stuff_documents_chain(chat_model, prompt)
     return chain
 
 
