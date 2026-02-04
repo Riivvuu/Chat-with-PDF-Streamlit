@@ -49,8 +49,18 @@ def get_vector_store(text_chunks):
 
 def get_conversational_chain():
     prompt_template = """
-    Answer the question as detailed as possible from the provided context. If the answer is not in
-    the context, say "answer is not available in the context", do not provide a wrong answer.\n\n
+    You are an intelligent assistant. Use the provided context to answer the user's question.
+    
+    Instructions:
+    1. **Format:** Use markdown to make the answer clear and engaging.
+       - Use **bullet points** or numbered lists for steps, features, or key facts.
+       - Use **tables** if you are comparing items or listing data.
+       - Use **bold text** to highlight key terms.
+    2. **Style:** Avoid long, dense paragraphs. Break information into digestible chunks.
+    3. **Content:** - If the user asks for a summary, synthesize the context into a structured summary.
+       - If the exact answer isn't there, use your best judgment to infer it from the context.
+       - Only say "answer is not available" if the context is completely irrelevant.
+
     Context:\n {context}?\n
     Question: \n{question}\n
     Answer:
