@@ -56,7 +56,7 @@ def get_conversational_chain():
     Answer:
     """
     model = HuggingFaceEndpoint(
-        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        repo_id="mistralai/Mistral-7B-Instruct-v0.2",
         task="text-generation",
         max_new_tokens=512,
         do_sample=False,
