@@ -61,13 +61,36 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    STRICT FORMATTING & LOGIC RULES:
-    1. **Synthesize, Don't List:** Never simply list items (like rows, table columns, or code properties) one by one. Group them into concepts.
-       - BAD: "Item A is X. Item B is Y. Item C is Z."
-       - GOOD: "Items A, B, and C are used for..."
-    2. **Avoid Repetition:** If the text repeats similar patterns, summarize the pattern once.
-    3. **Logical Flow:** Connect ideas with transition words. Do not just output disjointed facts.
-    4. **Formatting:** Use **bullet points** for distinct concepts and **bold text** for keywords.
+    UNIVERSAL PROTOCOL (FOLLOW STRICTLY):
+    
+    1. **Identify Document Type & Adapt Strategy:**
+       - **IF Technical/Scientific (SQL, Code, Medical):** Focus on *concepts, principles, and logic*. Do NOT extract raw data rows or dump table schemas. Explain *how* the system works.
+       - **IF Narrative (Literature, History, News):** Focus on the *plot, timeline, themes, and key arguments*. Mention specific characters/people if relevant to the narrative.
+       - **IF Legal/Financial (Contracts, Reports):** Focus on *obligations, dates, financial totals, and clauses*. Be precise with numbers here, but summarize the *implications*.
+
+    2. **Noise Filtration (CRITICAL):**
+       - **Ignore Page Artifacts:** Numbers like "10", "11", "Week 3" at the ends of sections are Page Numbers or Headers. Do NOT treat them as new topics or lectures.
+       - **Ignore Repetitive Lists:** If you see a list of 50 items (e.g., course codes, inventory), summarize it (e.g., "A list of various computer science courses") rather than reproducing it.
+
+    3. **Logical Synthesis:**
+       - Do not just output disjointed facts. Connect ideas using transition words.
+       - If the document covers multiple topics (e.g., "Week 1", "Week 2"), treat them as distinct sections in your answer.
+
+    4. **Handling Tables & Data:**
+       - **NEVER** copy-paste table rows verbatim.
+       - Instead, interpret the table: "The table shows a relationship between Students and Courses..."
+
+    5. **Citation & Grounding:**
+       - Answer ONLY based on the provided text. Do not invent information.
+       - If the text is cut off or incomplete, state what is known and stop.
+
+    6. **Formatting Rules:**
+       - Use **Headings** to separate major sections.
+       - Use **Bullet Points** for lists.
+       - Use **Bold** for key terms.
+
+    7. **Length Constraint:**
+       - Keep the summary concise (under 600 words) unless the user specifically asks for a detailed breakdown.
     ----------------
     
     Answer:
@@ -78,7 +101,7 @@ def get_conversational_chain():
         task="text-generation",
         max_new_tokens=1024,
         do_sample=True,
-        temperature=0.6,
+        temperature=0.4,
         top_p=0.95,
         repetition_penalty=1.3,
     )
