@@ -37,7 +37,7 @@ def get_pdf_text(pdf_docs):
 
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=100)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
     chunks = text_splitter.split_text(text)
     return chunks
 
@@ -61,37 +61,32 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    UNIVERSAL PROTOCOL (FOLLOW STRICTLY):
+    UNIVERSAL PROTOCOL (7-POINT SYSTEM):
     
-    1. **Identify Document Type & Adapt Strategy:**
-       - **IF Technical/Scientific (SQL, Code, Medical):** Explain the *purpose* and *logic* of the code/queries. (e.g., "This query calculates average salary...").
-       - **IF Narrative (Literature, History):** Focus on the *plot, timeline, themes, and key characters*.
-       - **IF Legal/Financial:** Focus on *obligations, dates, and clauses*.
+    1. **Identify & Adapt:**
+       - **IF Technical (SQL, Code):** Explain the *logic* of the code. Do NOT run it.
+       - **IF Narrative (Literature, History):** Focus on plot, themes, and characters.
+       - **IF Legal/Financial:** Focus on obligations and exact figures found in the text.
 
-    2. **CRITICAL: NO SIMULATION OR HALLUCINATION:**
-       - **NEVER** invent "Output" or "Result" tables. If the text shows a SQL query, explain what it *does*, do NOT pretend to run it.
-         - BAD: "Output: | dept_name | 12 |"
-         - GOOD: "The query aggregates credits by department."
-       - Do not mention specific data values (like "$5000" or "12 credits") unless they are explicitly in the text as examples.
+    2. **NO SIMULATION (CRITICAL):**
+       - **NEVER** invent "Output" or "Result" tables. If looking at a query, explain what it *does*, do not pretend to be a computer executing it.
+       - **NEVER** mention tables (e.g., "Tuition", "Fee") unless they appear explicitly in the text.
 
     3. **Noise Filtration:**
-       - **Ignore Page Artifacts:** Numbers like "10", "11", "Week 3" at the ends of sections are Page Numbers. Do NOT treat them as new topics.
-       - **Ignore Repetitive Lists:** Summarize lists (e.g., "A list of course codes") rather than reproducing them.
+       - Ignore page artifacts like "Week 3 Lecture 10" (these are page numbers).
+       - Summarize long lists (e.g., "A list of course codes") instead of reproducing them.
 
-    4. **Handling Tables:**
-       - **Interpret, Don't Copy:** Never copy-paste table rows. Explain the *relationship* the table demonstrates.
+    4. **Table Handling:**
+       - Interpret tables conceptually (e.g., "This table maps Instructors to Departments"). Do not copy-paste rows.
 
     5. **Logical Synthesis:**
-       - Connect ideas using transition words. Do not output disjointed facts.
-       - Treat distinct topics (e.g., "Week 1", "Week 2") as separate sections.
+       - Connect ideas smoothly. Treat "Week 1" and "Week 2" as distinct sections.
 
-    6. **Formatting Rules:**
-       - Use **Headings** for major sections.
-       - Use **Bullet Points** for lists.
-       - Use **Bold** for key terms.
+    6. **Formatting:**
+       - Use **Headings**, **Bold text**, and **Bullet points** for structure.
 
-    7. **Length Constraint:**
-       - Keep the summary concise (under 600 words) unless requested otherwise.
+    7. **Strict Grounding:**
+       - Answer ONLY based on the provided text. If the text stops, you stop. Do not fill gaps with guesses.
     ----------------
     
     Answer:
@@ -101,10 +96,8 @@ def get_conversational_chain():
         repo_id="HuggingFaceH4/zephyr-7b-beta",
         task="text-generation",
         max_new_tokens=1024,
-        do_sample=True,
-        temperature=0.4,
-        top_p=0.95,
-        repetition_penalty=1.3,
+        do_sample=False,
+        repetition_penalty=1.1,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
@@ -123,7 +116,7 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question, k=4)
+    docs = st.session_state.vector_store.similarity_search(user_question, k=8)
     docs = sorted(docs, key=extract_filename_for_sorting)
 
     chain = get_conversational_chain()
