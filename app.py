@@ -22,19 +22,22 @@ else:
 
 def get_pdf_text(pdf_docs):
     text = ""
+    pdf_docs = sorted(pdf_docs, key=lambda x: x.name)
     for pdf in pdf_docs:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
             tmp_file.write(pdf.getbuffer())
             tmp_path = tmp_file.name
         try:
+            text += f"\n\n--- START OF DOCUMENT: {pdf.name} ---\n"
             text += pymupdf4llm.to_markdown(tmp_path)
+            text += f"\n--- END OF DOCUMENT: {pdf.name} ---\n"
         finally:
             os.remove(tmp_path)
     return text
 
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=300)
     chunks = text_splitter.split_text(text)
     return chunks
 
@@ -49,17 +52,17 @@ def get_vector_store(text_chunks):
 
 def get_conversational_chain():
     prompt_template = """
-    You are an intelligent assistant. Use the provided context to answer the user's question.
+    You are an expert technical assistant. You have access to information from multiple PDF documents.
     
-    Instructions:
-    1. **Format:** Use markdown to make the answer clear and engaging.
-       - Use **bullet points** or numbered lists for steps, features, or key facts.
-       - Use **tables** if you are comparing items or listing data.
-       - Use **bold text** to highlight key terms.
-    2. **Style:** Avoid long, dense paragraphs. Break information into digestible chunks.
-    3. **Content:** - If the user asks for a summary, synthesize the context into a structured summary.
-       - If the exact answer isn't there, use your best judgment to infer it from the context.
-       - Only say "answer is not available" if the context is completely irrelevant.
+    CRITICAL INSTRUCTIONS:
+    1. **Document Logic:** READ the "SOURCE DOCUMENT" headers. logical order is important. If one file covers "Basics" and another "Advanced", explain the Basics first.
+    2. **Citations:** When explaining a concept, briefly mention which file it came from (e.g., "As seen in Week 1...").
+    3. **Formatting:** - NEVER use long paragraphs (max 3 sentences).
+       - Use **bullet points** for lists and features.
+       - Use **bold text** for key terms.
+       - Use **Markdown tables** if comparing data.
+       - Use **Code Blocks** for any code snippets.
+    4. **Completeness:** If the user asks for a summary, summarize ALL provided documents.
 
     Context:\n {context}?\n
     Question: \n{question}\n
@@ -68,7 +71,7 @@ def get_conversational_chain():
     llm = HuggingFaceEndpoint(
         repo_id="HuggingFaceH4/zephyr-7b-beta",
         task="text-generation",
-        max_new_tokens=512,
+        max_new_tokens=1024,
         do_sample=False,
     )
     chat_model = ChatHuggingFace(llm=llm)
@@ -83,7 +86,7 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question)
+    docs = st.session_state.vector_store.similarity_search(user_question, k=10)
     chain = get_conversational_chain()
 
     response = chain.invoke({"context": docs, "question": user_question})
