@@ -37,7 +37,7 @@ def get_pdf_text(pdf_docs):
 
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=600, chunk_overlap=100)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     chunks = text_splitter.split_text(text)
     return chunks
 
@@ -61,34 +61,12 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    UNIVERSAL PROTOCOL:
-    1. **Identify Type:**
-       - **IF Technical (SQL/Code):** Explain the *logic* (e.g., "Groups by Department"). DO NOT SIMULATE OUTPUTS.
-       - **IF Narrative (Lit/History):** Focus on Plot, Themes, and Characters.
-       - **IF Legal/Financial:** Focus on Obligations, Dates, and Totals.
-    
-    2. **Grounding Rules:**
-       - **NO Hallucinations:** Never invent tables (like "Tuition") not in the text.
-       - **NO Simulation:** Do not write "Output: | ID | Name |". Explain the query instead.
-       - **Ignore Artifacts:** "Week 3 Lecture 10" is a page number. Ignore it.
-
-    3. **Formatting (CRITICAL):**
-       - You MUST use the structure below.
-       - Do NOT write long paragraphs. Use Bullet Points.
-
-    EXAMPLE OUTPUT FORMAT (Follow strictly):
-
-    ### Document Overview
-    * **Type**: [e.g., Technical SQL Guide / Literature / Legal Contract]
-    * **Main Topic**: [Brief 1-sentence summary of the whole document]
-
-    ### Key Concepts & Logic
-    * **Concept 1**: [Definition or Explanation found in text]
-    * **Concept 2**: [Definition or Explanation]
-
-    ### Detailed Analysis
-    * **Point 1**: [For SQL: Explain a specific query's purpose / For Lit: A plot point]
-    * **Point 2**: [Explain the next query or event]
+    INSTRUCTIONS:
+    1. **Summarize the Key Points:** Identify the main topics and explain them briefly.
+    2. **Adapt to the Content:** - If it's technical (like SQL), explain what the code is doing conceptually.
+       - If it's narrative, summarize the story or themes.
+    3. **Be Direct:** Start your answer immediately. Do not say "In this document..." or "The text provides...".
+    4. **Format:** Use bullet points for readability.
     ----------------
 
     Answer:
@@ -98,8 +76,10 @@ def get_conversational_chain():
         repo_id="HuggingFaceH4/zephyr-7b-beta",
         task="text-generation",
         max_new_tokens=1024,
-        do_sample=False,
-        repetition_penalty=1.0,
+        do_sample=True,
+        temperature=0.3,
+        top_p=0.95,
+        repetition_penalty=1.1,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
@@ -118,7 +98,7 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question, k=8)
+    docs = st.session_state.vector_store.similarity_search(user_question, k=4)
     docs = sorted(docs, key=extract_filename_for_sorting)
 
     chain = get_conversational_chain()
