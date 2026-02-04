@@ -37,7 +37,7 @@ def get_pdf_text(pdf_docs):
 
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=300)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=900, chunk_overlap=100)
     chunks = text_splitter.split_text(text)
     return chunks
 
@@ -100,7 +100,7 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question, k=6)
+    docs = st.session_state.vector_store.similarity_search(user_question, k=4)
     docs = sorted(docs, key=extract_filename_for_sorting)
 
     chain = get_conversational_chain()
