@@ -61,14 +61,13 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    CRITICAL INSTRUCTIONS:
-    1. **NO LOOPS:** Stop immediately if you find yourself repeating the same sentence structure.
-    2. **Synthesize:** Summarize concepts concisely. Do not list every variation.
-    3. **Order:** The context provided is already sorted chronologically. Follow that order.
-    4. **Formatting:**
-       - Use **bullet points**.
-       - Use **bold text**.
-       - Keep answers under 500 words.
+    STRICT FORMATTING & LOGIC RULES:
+    1. **Synthesize, Don't List:** Never simply list items (like rows, table columns, or code properties) one by one. Group them into concepts.
+       - BAD: "Item A is X. Item B is Y. Item C is Z."
+       - GOOD: "Items A, B, and C are used for..."
+    2. **Avoid Repetition:** If the text repeats similar patterns, summarize the pattern once.
+    3. **Logical Flow:** Connect ideas with transition words. Do not just output disjointed facts.
+    4. **Formatting:** Use **bullet points** for distinct concepts and **bold text** for keywords.
     ----------------
     
     Answer:
@@ -79,9 +78,9 @@ def get_conversational_chain():
         task="text-generation",
         max_new_tokens=1024,
         do_sample=True,
-        temperature=0.5,
+        temperature=0.6,
         top_p=0.95,
-        repetition_penalty=1.5,
+        repetition_penalty=1.3,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
