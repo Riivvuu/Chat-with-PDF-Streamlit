@@ -4,7 +4,6 @@ langchain
 langchain-community
 langchain-classic
 langchain-text-splitters
-langchain-google-genai
 langchain-huggingface
 sentence-transformers
 faiss-cpu

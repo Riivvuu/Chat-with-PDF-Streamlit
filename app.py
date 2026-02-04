@@ -4,17 +4,20 @@ import tempfile
 import os
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-import google.generativeai as genai
+from langchain_huggingface import HuggingFaceEndpoint
 from langchain_community.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
-if api_key:
-    genai.configure(api_key=api_key)
+hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN") or st.secrets.get(
+    "HUGGINGFACEHUB_API_TOKEN"
+)
+if hf_token:
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
+else:
+    st.error("Missing HuggingFace Token. Check your Streamlit Secrets.")
 
 
 def get_pdf_text(pdf_docs):
@@ -52,7 +55,12 @@ def get_conversational_chain():
     Question: \n{question}\n
     Answer:
     """
-    model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.3)
+    model = HuggingFaceEndpoint(
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        task="text-generation",
+        max_new_tokens=512,
+        do_sample=False,
+    )
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
