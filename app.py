@@ -2,6 +2,7 @@ import streamlit as st
 import pymupdf4llm
 import tempfile
 import os
+import re
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
@@ -28,9 +29,8 @@ def get_pdf_text(pdf_docs):
             tmp_file.write(pdf.getbuffer())
             tmp_path = tmp_file.name
         try:
-            text += f"\n\n--- START OF DOCUMENT: {pdf.name} ---\n"
+            text += f"\n\n--- SOURCE DOCUMENT: {pdf.name} ---\n"
             text += pymupdf4llm.to_markdown(tmp_path)
-            text += f"\n--- END OF DOCUMENT: {pdf.name} ---\n"
         finally:
             os.remove(tmp_path)
     return text
@@ -61,14 +61,14 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    CRITICAL INSTRUCTIONS (READ THESE LAST):
-    1. **NO LOOPS:** Do not repeat sentence structures (e.g., do not start every sentence with "The relational model...").
-    2. **Synthesize:** Summarize the concepts. Do not simply list every single fact.
-    3. **Formatting:**
+    CRITICAL INSTRUCTIONS:
+    1. **NO LOOPS:** Stop immediately if you find yourself repeating the same sentence structure.
+    2. **Synthesize:** Summarize concepts concisely. Do not list every variation.
+    3. **Order:** The context provided is already sorted chronologically. Follow that order.
+    4. **Formatting:**
        - Use **bullet points**.
-       - Use **bold text** for terms.
-       - Max 3 sentences per paragraph.
-    4. **Citations:** Mention the source file (e.g., "From Week 1...").
+       - Use **bold text**.
+       - Keep answers under 500 words.
     ----------------
     
     Answer:
@@ -79,9 +79,9 @@ def get_conversational_chain():
         task="text-generation",
         max_new_tokens=1024,
         do_sample=True,
-        temperature=0.7,
+        temperature=0.5,
         top_p=0.95,
-        repetition_penalty=1.3,
+        repetition_penalty=1.5,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
@@ -91,11 +91,18 @@ def get_conversational_chain():
     return chain
 
 
+def extract_filename_for_sorting(doc):
+    match = re.search(r"--- SOURCE DOCUMENT: (.*?) ---", doc.page_content)
+    return match.group(1) if match else "z_unknown"
+
+
 def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
     docs = st.session_state.vector_store.similarity_search(user_question, k=6)
+    docs = sorted(docs, key=extract_filename_for_sorting)
+
     chain = get_conversational_chain()
 
     response = chain.invoke({"context": docs, "question": user_question})
