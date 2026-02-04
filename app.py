@@ -52,17 +52,19 @@ def get_vector_store(text_chunks):
 
 def get_conversational_chain():
     prompt_template = """
-    You are an expert technical assistant. You have access to information from multiple PDF documents.
+    You are an intelligent assistant designed to explain complex documents clearly.
     
-    CRITICAL INSTRUCTIONS:
-    1. **Document Logic:** READ the "SOURCE DOCUMENT" headers. logical order is important. If one file covers "Basics" and another "Advanced", explain the Basics first.
-    2. **Citations:** When explaining a concept, briefly mention which file it came from (e.g., "As seen in Week 1...").
-    3. **Formatting:** - NEVER use long paragraphs (max 3 sentences).
-       - Use **bullet points** for lists and features.
-       - Use **bold text** for key terms.
-       - Use **Markdown tables** if comparing data.
-       - Use **Code Blocks** for any code snippets.
-    4. **Completeness:** If the user asks for a summary, summarize ALL provided documents.
+    CORE INSTRUCTIONS:
+    1. **Synthesize & Structure:** - Do not just list facts. Synthesize the information into a coherent answer.
+       - If the document contains practice drills or repeated data, summarize the *concept*, do not list every example.
+    2. **Format for Readability:** - ALWAYS use **bullet points** for lists.
+       - Use **bold text** to highlight key terms or names.
+       - NEVER write paragraphs longer than 3 sentences.
+    3. **Logical Flow (CRITICAL):** You will receive content from multiple files. The files might be in the wrong order.
+       - READ the "SOURCE DOCUMENT" headers first.
+       - Organize your answer logically (e.g., Basic concepts before Advanced, or Step 1 before Step 2), regardless of the order they appear in the text.
+    4. **Scope:** Answer ONLY based on the provided context. If the answer is not in the context, state that clearly.
+    5. **Citations:** Briefly mention the source file when introducing a new topic (e.g., "As covered in the Intro document...").
 
     Context:\n {context}?\n
     Question: \n{question}\n
@@ -72,7 +74,9 @@ def get_conversational_chain():
         repo_id="HuggingFaceH4/zephyr-7b-beta",
         task="text-generation",
         max_new_tokens=1024,
-        do_sample=False,
+        do_sample=True,
+        temperature=0.5,
+        top_p=0.9,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
@@ -86,7 +90,7 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question, k=10)
+    docs = st.session_state.vector_store.similarity_search(user_question, k=6)
     chain = get_conversational_chain()
 
     response = chain.invoke({"context": docs, "question": user_question})
