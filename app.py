@@ -64,33 +64,34 @@ def get_conversational_chain():
     UNIVERSAL PROTOCOL (FOLLOW STRICTLY):
     
     1. **Identify Document Type & Adapt Strategy:**
-       - **IF Technical/Scientific (SQL, Code, Medical):** Focus on *concepts, principles, and logic*. Do NOT extract raw data rows or dump table schemas. Explain *how* the system works.
-       - **IF Narrative (Literature, History, News):** Focus on the *plot, timeline, themes, and key arguments*. Mention specific characters/people if relevant to the narrative.
-       - **IF Legal/Financial (Contracts, Reports):** Focus on *obligations, dates, financial totals, and clauses*. Be precise with numbers here, but summarize the *implications*.
+       - **IF Technical/Scientific (SQL, Code, Medical):** Explain the *purpose* and *logic* of the code/queries. (e.g., "This query calculates average salary...").
+       - **IF Narrative (Literature, History):** Focus on the *plot, timeline, themes, and key characters*.
+       - **IF Legal/Financial:** Focus on *obligations, dates, and clauses*.
 
-    2. **Noise Filtration (CRITICAL):**
-       - **Ignore Page Artifacts:** Numbers like "10", "11", "Week 3" at the ends of sections are Page Numbers or Headers. Do NOT treat them as new topics or lectures.
-       - **Ignore Repetitive Lists:** If you see a list of 50 items (e.g., course codes, inventory), summarize it (e.g., "A list of various computer science courses") rather than reproducing it.
+    2. **CRITICAL: NO SIMULATION OR HALLUCINATION:**
+       - **NEVER** invent "Output" or "Result" tables. If the text shows a SQL query, explain what it *does*, do NOT pretend to run it.
+         - BAD: "Output: | dept_name | 12 |"
+         - GOOD: "The query aggregates credits by department."
+       - Do not mention specific data values (like "$5000" or "12 credits") unless they are explicitly in the text as examples.
 
-    3. **Logical Synthesis:**
-       - Do not just output disjointed facts. Connect ideas using transition words.
-       - If the document covers multiple topics (e.g., "Week 1", "Week 2"), treat them as distinct sections in your answer.
+    3. **Noise Filtration:**
+       - **Ignore Page Artifacts:** Numbers like "10", "11", "Week 3" at the ends of sections are Page Numbers. Do NOT treat them as new topics.
+       - **Ignore Repetitive Lists:** Summarize lists (e.g., "A list of course codes") rather than reproducing them.
 
-    4. **Handling Tables & Data:**
-       - **NEVER** copy-paste table rows verbatim.
-       - Instead, interpret the table: "The table shows a relationship between Students and Courses..."
+    4. **Handling Tables:**
+       - **Interpret, Don't Copy:** Never copy-paste table rows. Explain the *relationship* the table demonstrates.
 
-    5. **Citation & Grounding:**
-       - Answer ONLY based on the provided text. Do not invent information.
-       - If the text is cut off or incomplete, state what is known and stop.
+    5. **Logical Synthesis:**
+       - Connect ideas using transition words. Do not output disjointed facts.
+       - Treat distinct topics (e.g., "Week 1", "Week 2") as separate sections.
 
     6. **Formatting Rules:**
-       - Use **Headings** to separate major sections.
+       - Use **Headings** for major sections.
        - Use **Bullet Points** for lists.
        - Use **Bold** for key terms.
 
     7. **Length Constraint:**
-       - Keep the summary concise (under 600 words) unless the user specifically asks for a detailed breakdown.
+       - Keep the summary concise (under 600 words) unless requested otherwise.
     ----------------
     
     Answer:
