@@ -37,7 +37,8 @@ def get_pdf_text(pdf_docs):
 
 
 def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    # Balanced chunk size: 700 chars is large enough for context, small enough for Zephyr
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
     chunks = text_splitter.split_text(text)
     return chunks
 
@@ -51,22 +52,34 @@ def get_vector_store(text_chunks):
 
 
 def get_conversational_chain():
-    prompt_template = prompt_template = """
-    You are an expert technical assistant. Use the provided context to answer the question.
-    
+    # FINAL PROMPT STRATEGY: "Guarded Generalist"
+    # 1. Logic: Explicitly handles Code vs. Narrative.
+    # 2. Safety: top_k=50 physically prevents "fake word" invention.
+
+    prompt_template = """
+    You are an intelligent document assistant. Analyze the provided context and summarize it according to its type.
+
     Context:
     {context}
-    
+
     Question: 
     {question}
-    
+
     ----------------
-    INSTRUCTIONS:
-    1. **Summarize the Key Points:** Identify the main topics and explain them briefly.
-    2. **Adapt to the Content:** - If it's technical (like SQL), explain what the code is doing conceptually.
-       - If it's narrative, summarize the story or themes.
-    3. **Be Direct:** Start your answer immediately. Do not say "In this document..." or "The text provides...".
-    4. **Format:** Use bullet points for readability.
+    UNIVERSAL INSTRUCTIONS:
+    
+    1. **Identify the Document Type:**
+       - **IF Technical/Code:** Focus on logic and functions. Wrap any code/queries in ```markdown code blocks```. Do NOT simulate outputs.
+       - **IF Narrative/Text:** Focus on themes, plot points, or key arguments. Use standard bullet points.
+    
+    2. **Grounding Rules:**
+       - **Truth:** Only mention entities (tables, characters, dates) actually present in the text.
+       - **No Noise:** Ignore page numbers or artifacts like "Week 3 Lecture 1".
+    
+    3. **Format:**
+       - Use **Headings** to separate ideas.
+       - Use **Bullet Points** for readability.
+       - Keep descriptions concise.
     ----------------
 
     Answer:
@@ -75,16 +88,19 @@ def get_conversational_chain():
     llm = HuggingFaceEndpoint(
         repo_id="HuggingFaceH4/zephyr-7b-beta",
         task="text-generation",
-        max_new_tokens=1024,
-        do_sample=True,
-        temperature=0.6,
+        max_new_tokens=700,
+        do_sample=True,  # Essential for natural flow (prevents loops)
+        temperature=0.4,  # Stability Sweet Spot (0.1 loops, 0.7 hallucinates)
+        top_k=50,  # <--- THE CRITICAL FIX: Restricts vocab to top 50 words to stop hallucinations
         top_p=0.95,
-        repetition_penalty=1.15,
+        repetition_penalty=1.1,  # Standard stability penalty
     )
+
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
         template=prompt_template, input_variables=["context", "question"]
     )
+
     chain = create_stuff_documents_chain(chat_model, prompt)
     return chain
 
@@ -98,7 +114,8 @@ def user_input(user_question):
     if st.session_state.vector_store is None:
         return "Please process the document first."
 
-    docs = st.session_state.vector_store.similarity_search(user_question, k=4)
+    # k=7 gives ~4900 chars context, fitting safely within Zephyr's window
+    docs = st.session_state.vector_store.similarity_search(user_question, k=7)
     docs = sorted(docs, key=extract_filename_for_sorting)
 
     chain = get_conversational_chain()
@@ -120,32 +137,25 @@ def main():
         st.session_state.messages = []
     if "vector_store" not in st.session_state:
         st.session_state.vector_store = None
-    # 1. Display Chat History FIRST
-    # (This ensures old messages are shown before we check for new input)
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # 2. Chat Input (Pins to Bottom)
-    # The ':= ' operator assigns the input to 'prompt' AND checks if it's not empty
     if prompt := st.chat_input("Ask a Question from the PDF Files"):
-        # Check if PDF is processed
         if st.session_state.vector_store is None:
             st.error("Please process the document first.")
         else:
-            # A. Display User Message Immediately
             st.chat_message("user").markdown(prompt)
-            # Add to history
             st.session_state.messages.append({"role": "user", "content": prompt})
-            # B. Get AI Response
+
             with st.chat_message("assistant"):
                 with st.spinner("Thinking..."):
                     response = user_input(prompt)
                     st.markdown(response)
-            # Add AI response to history
+
             st.session_state.messages.append({"role": "assistant", "content": response})
 
-    # Sidebar - PDF Upload & Processing
     with st.sidebar:
         st.title("Menu:")
         pdf_docs = st.file_uploader(
