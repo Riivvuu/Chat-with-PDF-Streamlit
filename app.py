@@ -77,9 +77,9 @@ def get_conversational_chain():
         task="text-generation",
         max_new_tokens=1024,
         do_sample=True,
-        temperature=0.3,
+        temperature=0.6,
         top_p=0.95,
-        repetition_penalty=1.1,
+        repetition_penalty=1.15,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
