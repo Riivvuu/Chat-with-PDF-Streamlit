@@ -77,6 +77,7 @@ def get_conversational_chain():
         do_sample=True,
         temperature=0.5,
         top_p=0.9,
+        repetition_penalty=1.1,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
