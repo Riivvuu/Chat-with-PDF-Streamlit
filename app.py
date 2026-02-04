@@ -61,34 +61,36 @@ def get_conversational_chain():
     {question}
     
     ----------------
-    UNIVERSAL PROTOCOL (7-POINT SYSTEM):
+    UNIVERSAL PROTOCOL:
+    1. **Identify Type:**
+       - **IF Technical (SQL/Code):** Explain the *logic* (e.g., "Groups by Department"). DO NOT SIMULATE OUTPUTS.
+       - **IF Narrative (Lit/History):** Focus on Plot, Themes, and Characters.
+       - **IF Legal/Financial:** Focus on Obligations, Dates, and Totals.
     
-    1. **Identify & Adapt:**
-       - **IF Technical (SQL, Code):** Explain the *logic* of the code. Do NOT run it.
-       - **IF Narrative (Literature, History):** Focus on plot, themes, and characters.
-       - **IF Legal/Financial:** Focus on obligations and exact figures found in the text.
+    2. **Grounding Rules:**
+       - **NO Hallucinations:** Never invent tables (like "Tuition") not in the text.
+       - **NO Simulation:** Do not write "Output: | ID | Name |". Explain the query instead.
+       - **Ignore Artifacts:** "Week 3 Lecture 10" is a page number. Ignore it.
 
-    2. **NO SIMULATION (CRITICAL):**
-       - **NEVER** invent "Output" or "Result" tables. If looking at a query, explain what it *does*, do not pretend to be a computer executing it.
-       - **NEVER** mention tables (e.g., "Tuition", "Fee") unless they appear explicitly in the text.
+    3. **Formatting (CRITICAL):**
+       - You MUST use the structure below.
+       - Do NOT write long paragraphs. Use Bullet Points.
 
-    3. **Noise Filtration:**
-       - Ignore page artifacts like "Week 3 Lecture 10" (these are page numbers).
-       - Summarize long lists (e.g., "A list of course codes") instead of reproducing them.
+    EXAMPLE OUTPUT FORMAT (Follow strictly):
 
-    4. **Table Handling:**
-       - Interpret tables conceptually (e.g., "This table maps Instructors to Departments"). Do not copy-paste rows.
+    ### Document Overview
+    * **Type**: [e.g., Technical SQL Guide / Literature / Legal Contract]
+    * **Main Topic**: [Brief 1-sentence summary of the whole document]
 
-    5. **Logical Synthesis:**
-       - Connect ideas smoothly. Treat "Week 1" and "Week 2" as distinct sections.
+    ### Key Concepts & Logic
+    * **Concept 1**: [Definition or Explanation found in text]
+    * **Concept 2**: [Definition or Explanation]
 
-    6. **Formatting:**
-       - Use **Headings**, **Bold text**, and **Bullet points** for structure.
-
-    7. **Strict Grounding:**
-       - Answer ONLY based on the provided text. If the text stops, you stop. Do not fill gaps with guesses.
+    ### Detailed Analysis
+    * **Point 1**: [For SQL: Explain a specific query's purpose / For Lit: A plot point]
+    * **Point 2**: [Explain the next query or event]
     ----------------
-    
+
     Answer:
     """
 
@@ -97,7 +99,7 @@ def get_conversational_chain():
         task="text-generation",
         max_new_tokens=1024,
         do_sample=False,
-        repetition_penalty=1.1,
+        repetition_penalty=1.0,
     )
     chat_model = ChatHuggingFace(llm=llm)
     prompt = PromptTemplate(
