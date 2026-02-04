@@ -56,7 +56,7 @@ def get_conversational_chain():
     Answer:
     """
     model = HuggingFaceEndpoint(
-        repo_id="HuggingFaceH4/zephyr-7b-beta",
+        repo_id="google/flan-t5-large",
         task="text-generation",
         max_new_tokens=512,
         do_sample=False,
