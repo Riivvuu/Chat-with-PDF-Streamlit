@@ -137,7 +137,7 @@ def get_vector_store(documents):
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
-    vectorstore = FAISS.from_texts(texts=chunks, embedding=embeddings)
+    vectorstore = FAISS.from_documents(documents=chunks, embedding=embeddings)
     return vectorstore
 
 
