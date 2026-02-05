@@ -61,7 +61,7 @@ with st.sidebar:
 
     # Error handling for secrets to prevent crash if not set
     try:
-        api_token = st.secrets
+        api_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
     except KeyError:
         st.error("Missing HUGGINGFACEHUB_API_TOKEN in st.secrets")
         st.stop()
