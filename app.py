@@ -33,18 +33,20 @@ st.markdown(
 with st.sidebar:
     st.title("🤖 Agentic RAG System")
 
-    model_choice = st.selectbox(
-        "Select Reasoning Agent:",
-        [
-            "Qwen/Qwen2.5-7B-Instruct",
-            "deepseek-ai/deepseek-llm-7b-chat",
-            "microsoft/Phi-3.5-mini-instruct",
-        ],
+    model_options = {
+        "Balanced (Recommended)": "Qwen/Qwen2.5-7B-Instruct",
+        "Deep Thinker (Slower)": "deepseek-ai/deepseek-llm-7b-chat",
+        "Fast & Lightweight": "microsoft/Phi-3.5-mini-instruct",
+    }
+
+    selected_assistant = st.selectbox(
+        "Select AI Assistant:",
+        options=list(model_options.keys()),
         index=0,
     )
+    model_choice = model_options[selected_assistant]
 
-    api_token = st.text_input("Hugging Face Token", type="password")
-    st.caption("Required for Inference API. Get it free at huggingface.co")
+    api_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
     st.divider()
     if "vectorstore" in st.session_state and st.session_state.vectorstore:
@@ -151,6 +153,16 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+if len(st.session_state.chat_history) == 0:
+    st.title("📄 Chat with your PDF")
+    st.markdown("""
+    Welcome! This app lets you upload a PDF and ask questions about it.
+    
+    **How to use:**
+    1. **Sidebar (Left):** Upload a PDF document and click **"🚀 Process"**.
+    2. **Below:** Type your question in the chat bar!
+    """)
+
 if "vectorstore" not in st.session_state:
     st.session_state.vectorstore = None
 
@@ -159,9 +171,7 @@ uploaded_files = st.sidebar.file_uploader("Upload PDFs", accept_multiple_files=T
 process = st.sidebar.button("🚀 Process")
 
 if process:
-    if not api_token:
-        st.error("Please enter your Hugging Face Token in the sidebar.")
-    elif not uploaded_files:
+    if not uploaded_files:
         st.error("Please upload a PDF.")
     else:
         with st.spinner("Processing documents..."):
