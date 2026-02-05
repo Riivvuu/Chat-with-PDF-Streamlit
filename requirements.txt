@@ -1,10 +1,7 @@
 streamlit
 pypdf
-langchain
 langchain-classic
 langchain-community
 langchain-huggingface
 faiss-cpu
-sentence-transformers
 huggingface_hub
-python-dotenv

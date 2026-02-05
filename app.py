@@ -5,6 +5,8 @@ from langchain_huggingface import (
     HuggingFaceEmbeddings,
     HuggingFaceEndpoint,
 )
+
+# Using langchain_classic as strictly requested
 from langchain_classic.chains import (
     create_history_aware_retriever,
     create_retrieval_chain,
@@ -28,6 +30,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- Session State Management ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
+
+
+def clear_chat():
+    """Callback to clear chat history securely before rerun."""
+    st.session_state.chat_history = []
+
+
 # --- Sidebar ---
 with st.sidebar:
     st.title("🤖 Agentic RAG System")
@@ -45,21 +59,54 @@ with st.sidebar:
     )
     model_choice = model_options[selected_assistant]
 
-    api_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+    # Error handling for secrets to prevent crash if not set
+    try:
+        api_token = st.secrets
+    except KeyError:
+        st.error("Missing HUGGINGFACEHUB_API_TOKEN in st.secrets")
+        st.stop()
 
     st.divider()
-    if "vectorstore" in st.session_state and st.session_state.vectorstore:
+
+    # File Upload Section
+    uploaded_files = st.sidebar.file_uploader("Upload PDFs", accept_multiple_files=True)
+
+    # --- Feature: Priority Selection ---
+    priority_doc = None
+    if uploaded_files:
+        doc_names = [f.name for f in uploaded_files]
+        priority_doc = st.selectbox(
+            "Prioritize Document (Read First):", options=doc_names, index=0
+        )
+
+    process = st.sidebar.button("🚀 Process")
+
+    # --- Feature: Clear Chat ---
+    st.sidebar.button("🗑️ Clear Chat", on_click=clear_chat)
+
+    st.divider()
+    if st.session_state.vectorstore:
         st.success("Knowledge Base: Active ✅")
     else:
         st.warning("Knowledge Base: Empty ❌")
 
-# --- Core Logic (Modern LCEL) ---
+# --- Core Logic ---
 
 
 @st.cache_data
-def get_pdf_text(pdf_docs):
-    """Extract text from PDFs."""
+def get_pdf_text(pdf_docs, priority_filename=None):
+    """
+    Extract text from PDFs with priority sorting.
+    The priority file is moved to the front of the list to be processed first.
+    """
     text = ""
+
+    # Sort docs: Priority file comes first
+    if priority_filename:
+        pdf_docs = sorted(
+            pdf_docs, key=lambda x: x.name == priority_filename, reverse=True
+        )
+
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
         for page in pdf_reader.pages:
@@ -85,15 +132,19 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
     Creates a Modern RAG Chain using LCEL.
     """
     # 1. Setup LLM
+    # CRITICAL FIX: Added task="conversational"
+    # This prevents the 'text-generation' ValueError for Instruct models.
     llm = HuggingFaceEndpoint(
         repo_id=repo_id,
         huggingfacehub_api_token=hf_token,
         temperature=0.3,
         max_new_tokens=512,
+        task="conversational",
     )
 
     chat_model = llm
     retriever = vectorstore.as_retriever()
+
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -141,9 +192,6 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
 
 # --- Main App Interface ---
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
 if len(st.session_state.chat_history) == 0:
     st.title("📄 Chat with your PDF")
     st.markdown("""
@@ -154,19 +202,14 @@ if len(st.session_state.chat_history) == 0:
     2. **Below:** Type your question in the chat bar!
     """)
 
-if "vectorstore" not in st.session_state:
-    st.session_state.vectorstore = None
-
-# File Upload Section
-uploaded_files = st.sidebar.file_uploader("Upload PDFs", accept_multiple_files=True)
-process = st.sidebar.button("🚀 Process")
-
+# Processing Logic
 if process:
     if not uploaded_files:
         st.error("Please upload a PDF.")
     else:
         with st.spinner("Processing documents..."):
-            raw_text = get_pdf_text(uploaded_files)
+            # Pass the selected priority file to the extractor
+            raw_text = get_pdf_text(uploaded_files, priority_filename=priority_doc)
             st.session_state.vectorstore = get_vector_store(raw_text)
             st.success("Ready! Chat below.")
 
@@ -183,11 +226,12 @@ if user_query:
 
         # Generate Response
         with st.chat_message("assistant"):
-            rag_chain = get_rag_chain(
-                st.session_state.vectorstore, model_choice, api_token
-            )
-
             with st.spinner("Thinking..."):
+                rag_chain = get_rag_chain(
+                    st.session_state.vectorstore, model_choice, api_token
+                )
+
+                # Retrieve Chat History
                 response = rag_chain.invoke(
                     {"input": user_query, "chat_history": st.session_state.chat_history}
                 )
