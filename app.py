@@ -43,10 +43,13 @@ def get_text_chunks(text):
     return chunks
 
 
+@st.cache_resource
+def load_embeddings():
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+
 def get_vector_store(text_chunks):
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    embeddings = load_embeddings()
     vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     return vector_store
 
