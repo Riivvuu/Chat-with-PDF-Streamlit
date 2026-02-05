@@ -88,21 +88,12 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
     llm = HuggingFaceEndpoint(
         repo_id=repo_id,
         huggingfacehub_api_token=hf_token,
-        task="text-generation",
         temperature=0.3,
         max_new_tokens=512,
     )
 
-    # --- FIX: Use the LLM directly, skip the ChatHuggingFace wrapper ---
-    # The wrapper was causing the "StopIteration" crash by trying to find
-    # a chat-specific provider that doesn't exist for these models.
     chat_model = llm
-    # -------------------------------------------------------------------
-
-    # 2. Setup Retriever
     retriever = vectorstore.as_retriever()
-
-    # 3. Contextualize Question Prompt
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -123,7 +114,6 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         chat_model, retriever, contextualize_q_prompt
     )
 
-    # 4. Answer Question Prompt
     qa_system_prompt = (
         "You are an assistant for question-answering tasks. "
         "Use the following pieces of retrieved context to answer "
@@ -142,7 +132,7 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         ]
     )
 
-    # 5. Final RAG Chain
+    # Final RAG Chain
     question_answer_chain = create_stuff_documents_chain(chat_model, qa_prompt)
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
