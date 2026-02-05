@@ -4,16 +4,20 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import (
     HuggingFaceEmbeddings,
     HuggingFaceEndpoint,
+    ChatHuggingFace,
 )
-
-# Using langchain_classic as strictly requested
+from langchain_core.documents import Document
 from langchain_classic.chains import (
     create_history_aware_retriever,
     create_retrieval_chain,
 )
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 from langchain_community.vectorstores import FAISS
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+    PromptTemplate,
+)
 from langchain_core.messages import HumanMessage, AIMessage
 
 # --- Page Config ---
@@ -94,30 +98,40 @@ with st.sidebar:
 
 
 @st.cache_data
-def get_pdf_text(pdf_docs, priority_filename=None):
+@st.cache_data
+def get_pdf_documents(uploaded_files, priority_filename=None):
     """
-    Extract text from PDFs with priority sorting.
-    The priority file is moved to the front of the list to be processed first.
+    Extracts text and creates Document objects with metadata.
+    This preserves file identity so the LLM knows which file is which.
     """
-    text = ""
+    documents = []
 
-    # Sort docs: Priority file comes first
+    # Sort files: Priority file first
     if priority_filename:
-        pdf_docs = sorted(
-            pdf_docs, key=lambda x: x.name == priority_filename, reverse=True
+        uploaded_files = sorted(
+            uploaded_files, key=lambda x: x.name == priority_filename, reverse=True
         )
 
-    for pdf in pdf_docs:
-        pdf_reader = PdfReader(pdf)
+    for pdf_file in uploaded_files:
+        pdf_reader = PdfReader(pdf_file)
+        file_text = ""
         for page in pdf_reader.pages:
-            text += page.extract_text()
-    return text
+            file_text += page.extract_text() or ""
+
+        # Add metadata so the LLM can "see" the source
+        metadata = {
+            "source": pdf_file.name,
+            "is_priority": (pdf_file.name == priority_filename),
+        }
+        documents.append(Document(page_content=file_text, metadata=metadata))
+
+    return documents
 
 
-def get_vector_store(text):
+def get_vector_store(documents):
     """Create Vector DB (Runs Locally - Free)."""
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = text_splitter.split_text(text)
+    chunks = text_splitter.split_documents(documents)
 
     # Local CPU Embeddings
     embeddings = HuggingFaceEmbeddings(
@@ -127,13 +141,14 @@ def get_vector_store(text):
     return vectorstore
 
 
-def get_rag_chain(vectorstore, repo_id, hf_token):
+@st.cache_resource
+def get_llm_chain(repo_id, hf_token):
     """
-    Creates a Modern RAG Chain using LCEL.
+    Initialize LLM and Chain. Cached to prevent reloading on every chat message.
     """
-    # 1. Setup LLM
-    # CRITICAL FIX: Added task="conversational"
-    # This prevents the 'text-generation' ValueError for Instruct models.
+    # 1. Initialize Endpoint
+    # We explicitly set task="conversational" because Qwen 2.5 on the API
+    # rejects the default 'text-generation' task check.
     llm = HuggingFaceEndpoint(
         repo_id=repo_id,
         huggingfacehub_api_token=hf_token,
@@ -142,9 +157,16 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         task="conversational",
     )
 
-    chat_model = llm
-    retriever = vectorstore.as_retriever()
+    # 2. Wrap in Chat Interface
+    chat_model = ChatHuggingFace(llm=llm)
 
+    return chat_model
+
+
+def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+
+    # Contextualize Question Prompt
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -165,12 +187,13 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         chat_model, retriever, contextualize_q_prompt
     )
 
+    # Answer Prompt
     qa_system_prompt = (
         "You are an assistant for question-answering tasks. "
-        "Use the following pieces of retrieved context to answer "
-        "the question. If you don't know the answer, say that you "
-        "don't know. Use three sentences maximum and keep the "
-        "answer concise."
+        "Use the following pieces of retrieved context to answer the question. "
+        f"The user has prioritized the document: '{priority_doc_name}'. "
+        "If you see information from that source, give it higher weight. "
+        "If you don't know the answer, say that you don't know."
         "\n\n"
         "{context}"
     )
@@ -183,8 +206,18 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         ]
     )
 
-    # Final RAG Chain
-    question_answer_chain = create_stuff_documents_chain(chat_model, qa_prompt)
+    # Custom Document Prompt to inject metadata into the context string
+    document_prompt = PromptTemplate(
+        input_variables=["page_content", "source"],
+        template="Source: {source}\nContent: {page_content}",
+    )
+
+    question_answer_chain = create_stuff_documents_chain(
+        chat_model,
+        qa_prompt,
+        document_prompt=document_prompt,  # Pass custom prompt here
+    )
+
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
     return rag_chain
@@ -196,10 +229,6 @@ if len(st.session_state.chat_history) == 0:
     st.title("📄 Chat with your PDF")
     st.markdown("""
     Welcome! This app lets you upload a PDF and ask questions about it.
-    
-    **How to use:**
-    1. **Sidebar (Left):** Upload a PDF document and click **"🚀 Process"**.
-    2. **Below:** Type your question in the chat bar!
     """)
 
 # Processing Logic
@@ -208,9 +237,9 @@ if process:
         st.error("Please upload a PDF.")
     else:
         with st.spinner("Processing documents..."):
-            # Pass the selected priority file to the extractor
-            raw_text = get_pdf_text(uploaded_files, priority_filename=priority_doc)
-            st.session_state.vectorstore = get_vector_store(raw_text)
+            # Use the fixed document loader
+            raw_docs = get_pdf_documents(uploaded_files, priority_filename=priority_doc)
+            st.session_state.vectorstore = get_vector_store(raw_docs)
             st.success("Ready! Chat below.")
 
 # Chat Logic
@@ -227,18 +256,22 @@ if user_query:
         # Generate Response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                rag_chain = get_rag_chain(
-                    st.session_state.vectorstore, model_choice, api_token
+                # Get Cached LLM
+                chat_model = get_llm_chain(model_choice, api_token)
+
+                # Re-create pipeline with current vectorstore
+                # (We recreate the pipeline because vectorstore changes, but LLM is cached)
+                priority_name = priority_doc if priority_doc else "None"
+                rag_chain = create_rag_pipeline(
+                    chat_model, st.session_state.vectorstore, priority_name
                 )
 
-                # Retrieve Chat History
                 response = rag_chain.invoke(
                     {"input": user_query, "chat_history": st.session_state.chat_history}
                 )
                 answer = response["answer"]
                 st.write(answer)
 
-            # Update History
             st.session_state.chat_history.extend(
                 [HumanMessage(content=user_query), AIMessage(content=answer)]
             )
