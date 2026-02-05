@@ -7,3 +7,4 @@ langchain-text-splitters
 langchain-core
 faiss-cpu
 huggingface-hub
+sentence-transformers
