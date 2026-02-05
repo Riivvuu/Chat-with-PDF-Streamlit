@@ -1,13 +1,10 @@
 streamlit
-pymupdf4llm
+pypdf
 langchain
-langchain-community
 langchain-classic
-langchain-text-splitters
+langchain-community
 langchain-huggingface
-sentence-transformers
 faiss-cpu
+sentence-transformers
+huggingface_hub
 python-dotenv
-
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.2+cpu

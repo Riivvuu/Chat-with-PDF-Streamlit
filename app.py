@@ -1,183 +1,199 @@
 import streamlit as st
-import pymupdf4llm
-import tempfile
-import os
-import re
+from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace
-from langchain_community.vectorstores import FAISS
-from langchain_classic.chains.combine_documents import create_stuff_documents_chain
-from langchain_core.prompts import PromptTemplate
-from dotenv import load_dotenv
-
-load_dotenv()
-hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN") or st.secrets.get(
-    "HUGGINGFACEHUB_API_TOKEN"
+from langchain_huggingface import (
+    HuggingFaceEmbeddings,
+    HuggingFaceEndpoint,
+    ChatHuggingFace,
 )
-if hf_token:
-    os.environ["HUGGINGFACEHUB_API_TOKEN"] = hf_token
-else:
-    st.error("Missing HuggingFace Token. Check your Streamlit Secrets.")
+from langchain_classic.chains import (
+    create_history_aware_retriever,
+    create_retrieval_chain,
+)
+from langchain_classic.chains.combine_documents import create_stuff_documents_chain
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+
+# --- Page Config ---
+st.set_page_config(page_title="Agentic RAG", layout="wide")
+
+st.markdown(
+    """
+<style>
+   .stChatInput {border-radius: 15px;}
+   .stChatMessage {border-radius: 10px; margin-bottom: 10px;}
+   .stSpinner {color: #00ff00;}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+# --- Sidebar ---
+with st.sidebar:
+    st.title("🤖 Agentic RAG System")
+
+    model_choice = st.selectbox(
+        "Select Reasoning Agent:",
+        [
+            "Qwen/Qwen2.5-7B-Instruct",
+            "deepseek-ai/deepseek-llm-7b-chat",
+            "microsoft/Phi-3.5-mini-instruct",
+        ],
+        index=0,
+    )
+
+    api_token = st.text_input("Hugging Face Token", type="password")
+    st.caption("Required for Inference API. Get it free at huggingface.co")
+
+    st.divider()
+    if "vectorstore" in st.session_state and st.session_state.vectorstore:
+        st.success("Knowledge Base: Active ✅")
+    else:
+        st.warning("Knowledge Base: Empty ❌")
+
+# --- Core Logic (Modern LCEL) ---
 
 
+@st.cache_data
 def get_pdf_text(pdf_docs):
+    """Extract text from PDFs."""
     text = ""
-    pdf_docs = sorted(pdf_docs, key=lambda x: x.name)
     for pdf in pdf_docs:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(pdf.getbuffer())
-            tmp_path = tmp_file.name
-        try:
-            text += f"\n\n--- SOURCE DOCUMENT: {pdf.name} ---\n"
-            text += pymupdf4llm.to_markdown(tmp_path)
-        finally:
-            os.remove(tmp_path)
+        pdf_reader = PdfReader(pdf)
+        for page in pdf_reader.pages:
+            text += page.extract_text()
     return text
 
 
-def get_text_chunks(text):
-    # Balanced chunk size: 700 chars is large enough for context, small enough for Zephyr
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
+def get_vector_store(text):
+    """Create Vector DB (Runs Locally - Free)."""
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_text(text)
-    return chunks
+
+    # Local CPU Embeddings
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    vectorstore = FAISS.from_texts(texts=chunks, embedding=embeddings)
+    return vectorstore
 
 
-@st.cache_resource
-def load_embeddings():
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-
-def get_vector_store(text_chunks):
-    embeddings = load_embeddings()
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    return vector_store
-
-
-def get_conversational_chain():
-    # FINAL PROMPT STRATEGY: "Guarded Generalist"
-    # 1. Logic: Explicitly handles Code vs. Narrative.
-    # 2. Safety: top_k=50 physically prevents "fake word" invention.
-
-    prompt_template = """
-    You are an intelligent document assistant. Analyze the provided context and summarize it according to its type.
-
-    Context:
-    {context}
-
-    Question: 
-    {question}
-
-    ----------------
-    UNIVERSAL INSTRUCTIONS:
-    
-    1. **Identify the Document Type:**
-       - **IF Technical/Code:** Focus on logic and functions. Wrap any code/queries in ```markdown code blocks```. Do NOT simulate outputs.
-       - **IF Narrative/Text:** Focus on themes, plot points, or key arguments. Use standard bullet points.
-    
-    2. **Grounding Rules:**
-       - **Truth:** Only mention entities (tables, characters, dates) actually present in the text.
-       - **No Noise:** Ignore page numbers or artifacts like "Week 3 Lecture 1".
-    
-    3. **Format:**
-       - Use **Headings** to separate ideas.
-       - Use **Bullet Points** for readability.
-       - Keep descriptions concise.
-    ----------------
-
-    Answer:
+def get_rag_chain(vectorstore, repo_id, hf_token):
     """
-
+    Creates a Modern RAG Chain using LCEL (LangChain Expression Language).
+    This replaces the legacy ConversationalRetrievalChain.
+    """
+    # 1. Setup LLM
     llm = HuggingFaceEndpoint(
-        repo_id="HuggingFaceH4/zephyr-7b-beta",
+        repo_id=repo_id,
+        huggingfacehub_api_token=hf_token,
         task="text-generation",
-        max_new_tokens=700,
-        do_sample=True,  # Essential for natural flow (prevents loops)
-        temperature=0.4,  # Stability Sweet Spot (0.1 loops, 0.7 hallucinates)
-        top_k=50,  # <--- THE CRITICAL FIX: Restricts vocab to top 50 words to stop hallucinations
-        top_p=0.95,
-        repetition_penalty=1.1,  # Standard stability penalty
+        temperature=0.3,
+        max_new_tokens=512,
     )
-
     chat_model = ChatHuggingFace(llm=llm)
-    prompt = PromptTemplate(
-        template=prompt_template, input_variables=["context", "question"]
+
+    # 2. Setup Retriever
+    retriever = vectorstore.as_retriever()
+
+    # 3. Contextualize Question Prompt
+    # This reformulates the user's latest question based on history
+    contextualize_q_system_prompt = (
+        "Given a chat history and the latest user question "
+        "which might reference context in the chat history, "
+        "formulate a standalone question which can be understood "
+        "without the chat history. Do NOT answer the question, "
+        "just reformulate it if needed and otherwise return it as is."
     )
 
-    chain = create_stuff_documents_chain(chat_model, prompt)
-    return chain
-
-
-def extract_filename_for_sorting(doc):
-    match = re.search(r"--- SOURCE DOCUMENT: (.*?) ---", doc.page_content)
-    return match.group(1) if match else "z_unknown"
-
-
-def user_input(user_question):
-    if st.session_state.vector_store is None:
-        return "Please process the document first."
-
-    # k=7 gives ~4900 chars context, fitting safely within Zephyr's window
-    docs = st.session_state.vector_store.similarity_search(user_question, k=7)
-    docs = sorted(docs, key=extract_filename_for_sorting)
-
-    chain = get_conversational_chain()
-
-    response = chain.invoke({"context": docs, "question": user_question})
-
-    return (
-        response
-        if isinstance(response, str)
-        else response.get("output_text", str(response))
+    contextualize_q_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", contextualize_q_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ]
     )
 
+    # This chain handles history awareness
+    history_aware_retriever = create_history_aware_retriever(
+        chat_model, retriever, contextualize_q_prompt
+    )
 
-def main():
-    st.set_page_config("Chat PDF")
-    st.header("RAG Chatbot")
+    # 4. Answer Question Prompt
+    qa_system_prompt = (
+        "You are an assistant for question-answering tasks. "
+        "Use the following pieces of retrieved context to answer "
+        "the question. If you don't know the answer, say that you "
+        "don't know. Use three sentences maximum and keep the "
+        "answer concise."
+        "\n\n"
+        "{context}"
+    )
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    if "vector_store" not in st.session_state:
-        st.session_state.vector_store = None
+    qa_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", qa_system_prompt),
+            MessagesPlaceholder("chat_history"),
+            ("human", "{input}"),
+        ]
+    )
 
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # 5. Final RAG Chain
+    question_answer_chain = create_stuff_documents_chain(chat_model, qa_prompt)
+    rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
 
-    if prompt := st.chat_input("Ask a Question from the PDF Files"):
-        if st.session_state.vector_store is None:
-            st.error("Please process the document first.")
-        else:
-            st.chat_message("user").markdown(prompt)
-            st.session_state.messages.append({"role": "user", "content": prompt})
-
-            with st.chat_message("assistant"):
-                with st.spinner("Thinking..."):
-                    response = user_input(prompt)
-                    st.markdown(response)
-
-            st.session_state.messages.append({"role": "assistant", "content": response})
-
-    with st.sidebar:
-        st.title("Menu:")
-        pdf_docs = st.file_uploader(
-            "Upload PDF Files", accept_multiple_files=True, type=["pdf"]
-        )
-        if st.button("Submit & Process"):
-            if pdf_docs:
-                with st.spinner("Processing..."):
-                    raw_text = get_pdf_text(pdf_docs)
-                    text_chunks = get_text_chunks(raw_text)
-                    st.session_state.vector_store = get_vector_store(text_chunks)
-                    st.success("Vector Store Created Successfully")
-            else:
-                st.warning("Please upload at least one PDF.")
-
-        if st.button("Clear Chat History"):
-            st.session_state.messages = []
-            st.rerun()
+    return rag_chain
 
 
-if __name__ == "__main__":
-    main()
+# --- Main App Interface ---
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if "vectorstore" not in st.session_state:
+    st.session_state.vectorstore = None
+
+# File Upload Section
+uploaded_files = st.sidebar.file_uploader("Upload PDFs", accept_multiple_files=True)
+process = st.sidebar.button("🚀 Process")
+
+if process:
+    if not api_token:
+        st.error("Please enter your Hugging Face Token in the sidebar.")
+    elif not uploaded_files:
+        st.error("Please upload a PDF.")
+    else:
+        with st.spinner("Processing documents..."):
+            raw_text = get_pdf_text(uploaded_files)
+            st.session_state.vectorstore = get_vector_store(raw_text)
+            st.success("Ready! Chat below.")
+
+# Chat Logic
+user_query = st.chat_input("Ask a question...")
+
+if user_query:
+    if st.session_state.vectorstore is None:
+        st.warning("Please upload and process a PDF first.")
+    else:
+        # Display User Message
+        with st.chat_message("user"):
+            st.write(user_query)
+
+        # Generate Response
+        with st.chat_message("assistant"):
+            rag_chain = get_rag_chain(
+                st.session_state.vectorstore, model_choice, api_token
+            )
+
+            with st.spinner("Thinking..."):
+                response = rag_chain.invoke(
+                    {"input": user_query, "chat_history": st.session_state.chat_history}
+                )
+                answer = response["answer"]
+                st.write(answer)
+
+            # Update History
+            st.session_state.chat_history.extend(
+                [HumanMessage(content=user_query), AIMessage(content=answer)]
+            )
