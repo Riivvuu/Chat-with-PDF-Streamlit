@@ -4,7 +4,6 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import (
     HuggingFaceEmbeddings,
     HuggingFaceEndpoint,
-    ChatHuggingFace,
 )
 from langchain_classic.chains import (
     create_history_aware_retriever,
@@ -83,8 +82,7 @@ def get_vector_store(text):
 
 def get_rag_chain(vectorstore, repo_id, hf_token):
     """
-    Creates a Modern RAG Chain using LCEL (LangChain Expression Language).
-    This replaces the legacy ConversationalRetrievalChain.
+    Creates a Modern RAG Chain using LCEL.
     """
     # 1. Setup LLM
     llm = HuggingFaceEndpoint(
@@ -94,13 +92,17 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         temperature=0.3,
         max_new_tokens=512,
     )
-    chat_model = ChatHuggingFace(llm=llm)
+
+    # --- FIX: Use the LLM directly, skip the ChatHuggingFace wrapper ---
+    # The wrapper was causing the "StopIteration" crash by trying to find
+    # a chat-specific provider that doesn't exist for these models.
+    chat_model = llm
+    # -------------------------------------------------------------------
 
     # 2. Setup Retriever
     retriever = vectorstore.as_retriever()
 
     # 3. Contextualize Question Prompt
-    # This reformulates the user's latest question based on history
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -117,7 +119,6 @@ def get_rag_chain(vectorstore, repo_id, hf_token):
         ]
     )
 
-    # This chain handles history awareness
     history_aware_retriever = create_history_aware_retriever(
         chat_model, retriever, contextualize_q_prompt
     )
