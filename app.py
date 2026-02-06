@@ -1,4 +1,5 @@
 import streamlit as st
+import re  # Added for cleaning <think> tags
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import (
@@ -44,6 +45,16 @@ if "vectorstore" not in st.session_state:
 def clear_chat():
     """Callback to clear chat history securely before rerun."""
     st.session_state.chat_history = []
+
+
+def clean_response(text):
+    """
+    Removes <think>...</think> tags and their content from the text.
+    Also removes any leading whitespace left behind.
+    """
+    # Use DOTALL so the dot matches newlines within the tags
+    cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    return cleaned.strip()
 
 
 # --- Sidebar ---
@@ -298,9 +309,11 @@ if user_query:
                 response = rag_chain.invoke(
                     {"input": user_query, "chat_history": st.session_state.chat_history}
                 )
-                answer = response["answer"]
-                st.write(answer)
+                raw_answer = response["answer"]
+                # CLEANING LOGIC 2: Clean new message before displaying
+                final_answer = clean_response(raw_answer)
+                st.write(final_answer)
 
             st.session_state.chat_history.extend(
-                [HumanMessage(content=user_query), AIMessage(content=answer)]
+                [HumanMessage(content=user_query), AIMessage(content=final_answer)]
             )
