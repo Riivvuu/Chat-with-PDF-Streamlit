@@ -149,12 +149,22 @@ def get_llm_chain(repo_id, hf_token):
     # 1. Initialize Endpoint
     # We explicitly set task="conversational" because Qwen 2.5 on the API
     # rejects the default 'text-generation' task check.
+    # Adjust parameters based on model type
+    if "deepseek" in repo_id.lower():
+        # DeepSeek R1 requires higher temperature and massive token limit for thinking
+        temp = 0.6
+        max_tokens = 4096
+    else:
+        # Standard models (Qwen, Llama) work best with lower temp
+        temp = 0.3
+        max_tokens = 1024
     llm = HuggingFaceEndpoint(
         repo_id=repo_id,
         huggingfacehub_api_token=hf_token,
-        temperature=0.3,
-        max_new_tokens=512,
+        temperature=temp,
+        max_new_tokens=max_tokens,
         task="conversational",
+        return_full_text=False,
     )
 
     # 2. Wrap in Chat Interface
