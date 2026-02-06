@@ -52,8 +52,8 @@ with st.sidebar:
 
     model_options = {
         "Balanced (Recommended)": "Qwen/Qwen2.5-7B-Instruct",
-        "Deep Thinker (Slower)": "deepseek-ai/deepseek-llm-7b-chat",
-        "Fast & Lightweight": "microsoft/Phi-3.5-mini-instruct",
+        "Deep Thinker (Slower)": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+        "Fast & Lightweight": "Qwen/Qwen2.5-1.5B-Instruct",
     }
 
     selected_assistant = st.selectbox(
