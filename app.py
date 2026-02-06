@@ -98,7 +98,6 @@ with st.sidebar:
 
 
 @st.cache_data
-@st.cache_data
 def get_pdf_documents(uploaded_files, priority_filename=None):
     """
     Extracts text and creates Document objects with metadata.
@@ -113,6 +112,7 @@ def get_pdf_documents(uploaded_files, priority_filename=None):
         )
 
     for pdf_file in uploaded_files:
+        pdf_file.seek(0)  # Ensure we're at the start of the file
         pdf_reader = PdfReader(pdf_file)
         file_text = ""
         for page in pdf_reader.pages:
@@ -189,11 +189,21 @@ def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
 
     # Answer Prompt
     qa_system_prompt = (
-        "You are an assistant for question-answering tasks. "
+        "You are an intelligent assistant capable of analyzing documents from various domains "
+        "(mathematics, coding, legal, literature, etc.). "
         "Use the following pieces of retrieved context to answer the question. "
         f"The user has prioritized the document: '{priority_doc_name}'. "
         "If you see information from that source, give it higher weight. "
-        "If you don't know the answer, say that you don't know."
+        "If you don't know the answer, say that you don't know.\n\n"
+        "**FORMATTING GUIDELINES:**\n"
+        "1. **Math & Science:** Use standard LaTeX for all equations. "
+        "   - Inline: $E=mc^2$ (single dollar signs)\n"
+        "   - Block: $$x = ...$$ (double dollar signs)\n"
+        "2. **Coding:** Always use triple backticks for code blocks with the language specified "
+        "   (e.g., ```python for Python, ```sql for SQL).\n"
+        "3. **General Structure:** Use bolding (**text**) for key terms and bullet points for lists.\n"
+        "4. **Citations:** When answering based on specific documents, explicitly mention the source filename "
+        "   (e.g., 'According to [Filename]...').\n"
         "\n\n"
         "{context}"
     )
@@ -241,6 +251,15 @@ if process:
             raw_docs = get_pdf_documents(uploaded_files, priority_filename=priority_doc)
             st.session_state.vectorstore = get_vector_store(raw_docs)
             st.success("Ready! Chat below.")
+
+# Display Chat History ---
+for message in st.session_state.chat_history:
+    if isinstance(message, HumanMessage):
+        with st.chat_message("user"):
+            st.write(message.content)
+    elif isinstance(message, AIMessage):
+        with st.chat_message("assistant"):
+            st.write(message.content)
 
 # Chat Logic
 user_query = st.chat_input("Ask a question...")
