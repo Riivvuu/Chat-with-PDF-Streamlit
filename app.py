@@ -62,7 +62,6 @@ def parse_response(text):
         thinking = None
         answer = text.strip()
 
-    # Applying existing LaTeX cleanup to the answer only
     answer = re.sub(r"\\\[", "$$", answer)
     answer = re.sub(r"\\\]", "$$", answer)
     answer = re.sub(r"\\\(", "$", answer)
