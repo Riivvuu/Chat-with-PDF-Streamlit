@@ -1,5 +1,5 @@
 import streamlit as st
-import re  # Added for cleaning <think> tags
+import re
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import (
@@ -23,7 +23,6 @@ from langchain_core.messages import HumanMessage, AIMessage
 
 # --- Page Config ---
 st.set_page_config(page_title="Agentic RAG", layout="wide")
-
 st.markdown(
     """
 <style>
@@ -55,16 +54,15 @@ def parse_response(text):
     # Regex to find content inside <think> tags
     think_pattern = r"<think>(.*?)</think>"
     match = re.search(think_pattern, text, flags=re.DOTALL)
-
     if match:
         thinking = match.group(1).strip()
-        # The answer is whatever is left after removing the <think> block
+        # The answer is whatever's left after removing the <think> block
         answer = re.sub(think_pattern, "", text, flags=re.DOTALL).strip()
     else:
         thinking = None
         answer = text.strip()
 
-    # Apply your existing LaTeX cleanup to the answer only
+    # Applying existing LaTeX cleanup to the answer only
     answer = re.sub(r"\\\[", "$$", answer)
     answer = re.sub(r"\\\]", "$$", answer)
     answer = re.sub(r"\\\(", "$", answer)
@@ -76,7 +74,6 @@ def parse_response(text):
 # --- Sidebar ---
 with st.sidebar:
     st.title("🤖 Agentic RAG System")
-
     model_options = {
         "Balanced (Recommended)": "Qwen/Qwen2.5-7B-Instruct",
         "Deep Thinker (Slower)": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
@@ -90,17 +87,15 @@ with st.sidebar:
         "Select AI Assistant:",
         options=list(model_options.keys()),
         index=0,
-        on_change=reset_conversation,  # <--- ADD THIS
+        on_change=reset_conversation,
     )
     model_choice = model_options[selected_assistant]
-
     # Error handling for secrets to prevent crash if not set
     try:
         api_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
     except KeyError:
         st.error("Missing HUGGINGFACEHUB_API_TOKEN in st.secrets")
         st.stop()
-
     st.divider()
 
     # File Upload Section
@@ -113,21 +108,18 @@ with st.sidebar:
         priority_doc = st.selectbox(
             "Prioritize Document (Read First):", options=doc_names, index=0
         )
-
     process = st.sidebar.button("🚀 Process")
 
     # --- Feature: Clear Chat ---
     st.sidebar.button("🗑️ Clear Chat", on_click=clear_chat)
-
     st.divider()
     if st.session_state.vectorstore:
         st.success("Knowledge Base: Active ✅")
     else:
         st.warning("Knowledge Base: Empty ❌")
 
+
 # --- Core Logic ---
-
-
 @st.cache_data
 def get_pdf_documents(uploaded_files, priority_filename=None):
     """
@@ -143,19 +135,18 @@ def get_pdf_documents(uploaded_files, priority_filename=None):
         )
 
     for pdf_file in uploaded_files:
-        pdf_file.seek(0)  # Ensure we're at the start of the file
+        pdf_file.seek(0)  # Ensuring we're at the start of the file
         pdf_reader = PdfReader(pdf_file)
         file_text = ""
         for page in pdf_reader.pages:
             file_text += page.extract_text() or ""
 
-        # Add metadata so the LLM can "see" the source
+        # Adding metadata so the LLM can "see" the source
         metadata = {
             "source": pdf_file.name,
             "is_priority": (pdf_file.name == priority_filename),
         }
         documents.append(Document(page_content=file_text, metadata=metadata))
-
     return documents
 
 
@@ -163,7 +154,6 @@ def get_vector_store(documents):
     """Create Vector DB (Runs Locally - Free)."""
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(documents)
-
     # Local CPU Embeddings
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
@@ -178,9 +168,9 @@ def get_llm_chain(repo_id, hf_token):
     Initialize LLM and Chain. Cached to prevent reloading on every chat message.
     """
     # 1. Initialize Endpoint
-    # We explicitly set task="conversational" because Qwen 2.5 on the API
+    # Explicitly setting task="conversational" because Qwen 2.5 on the API
     # rejects the default 'text-generation' task check.
-    # Adjust parameters based on model type
+    # Adjusting parameters based on model type
     if "deepseek" in repo_id.lower():
         # DeepSeek R1 requires higher temperature and massive token limit for thinking
         temp = 0.6
@@ -198,15 +188,13 @@ def get_llm_chain(repo_id, hf_token):
         return_full_text=False,
     )
 
-    # 2. Wrap in Chat Interface
+    # 2. Wrapping in Chat Interface
     chat_model = ChatHuggingFace(llm=llm)
-
     return chat_model
 
 
 def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
     retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
-
     # Contextualize Question Prompt
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
@@ -215,7 +203,6 @@ def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
         "without the chat history. Do NOT answer the question, "
         "just reformulate it if needed and otherwise return it as is."
     )
-
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
         [
             ("system", contextualize_q_system_prompt),
@@ -223,7 +210,6 @@ def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
             ("human", "{input}"),
         ]
     )
-
     history_aware_retriever = create_history_aware_retriever(
         chat_model, retriever, contextualize_q_prompt
     )
@@ -231,7 +217,7 @@ def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
     # Answer Prompt
     qa_system_prompt = (
         "You are an intelligent assistant capable of analyzing documents from various domains "
-        "(mathematics, coding, legal, literature, etc.). "
+        "(mathematics, coding, legal, literature, science, history, etc.). "
         "Use the following pieces of retrieved context to answer the question. "
         f"The user has prioritized the document: '{priority_doc_name}'. "
         "If you see information from that source, give it higher weight. "
@@ -266,11 +252,10 @@ def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
     question_answer_chain = create_stuff_documents_chain(
         chat_model,
         qa_prompt,
-        document_prompt=document_prompt,  # Pass custom prompt here
+        document_prompt=document_prompt,  # Passing custom prompt
     )
 
     rag_chain = create_retrieval_chain(history_aware_retriever, question_answer_chain)
-
     return rag_chain
 
 
@@ -288,12 +273,12 @@ if process:
         st.error("Please upload a PDF.")
     else:
         with st.spinner("Processing documents..."):
-            # Use the fixed document loader
+            # Using fixed document loader
             raw_docs = get_pdf_documents(uploaded_files, priority_filename=priority_doc)
             st.session_state.vectorstore = get_vector_store(raw_docs)
             st.success("Ready! Chat below.")
 
-# Display Chat History ---
+# Displaying Chat History ---
 for message in st.session_state.chat_history:
     if isinstance(message, HumanMessage):
         with st.chat_message("user"):
@@ -304,22 +289,21 @@ for message in st.session_state.chat_history:
 
 # Chat Logic
 user_query = st.chat_input("Ask a question...")
-
 if user_query:
     if st.session_state.vectorstore is None:
         st.warning("Please upload and process a PDF first.")
     else:
-        # Display User Message
+        # Displaying User Message
         with st.chat_message("user"):
             st.write(user_query)
 
-        # Generate Response
+        # Generating Response
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                # Get Cached LLM
+                # Getting Cached LLM
                 chat_model = get_llm_chain(model_choice, api_token)
 
-                # Re-create pipeline with current vectorstore
+                # Re-creating pipeline with current vectorstore
                 # (We recreate the pipeline because vectorstore changes, but LLM is cached)
                 priority_name = priority_doc if priority_doc else "None"
                 rag_chain = create_rag_pipeline(
@@ -340,7 +324,6 @@ if user_query:
                 if thinking:
                     with st.expander("🧠 DeepSeek Thought Process"):
                         st.write(thinking)
-
                 st.write(final_answer)
 
             st.session_state.chat_history.extend(
