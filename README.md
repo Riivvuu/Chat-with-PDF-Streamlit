@@ -33,17 +33,18 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
 Clone the repository and install the dependencies:
 
 **Bash**
-git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
-cd agentic-rag-system
-pip install -r requirements.txt
+    `git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
+    cd agentic-rag-system
+    pip install -r requirements.txt
+    `
 
 3. Configuration
 
 The app uses Streamlit's secret management. Create a folder named .streamlit in your root directory and add a secrets.toml file:
 
 **Ini, TOML**
-#.streamlit/secrets.toml
-HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"
+    `#.streamlit/secrets.toml
+    HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"`
 
 4. Running the App
 
@@ -51,7 +52,7 @@ Launch the Streamlit server:
 
 
 **Bash**
-streamlit run app.py
+    `streamlit run app.py`
 
 ## How to Use
 
