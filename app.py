@@ -56,12 +56,12 @@ def clean_response(text):
     cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     # 2. Fix LaTeX Delimiters for Streamlit
     # Replace block math \[ ... \] with $$ ... $$
-    cleaned = re.sub(r"\\\[", "$$", text)
-    cleaned = re.sub(r"\\\]", "$$", text)
+    cleaned = re.sub(r"\\\[", "$$", cleaned)
+    cleaned = re.sub(r"\\\]", "$$", cleaned)
 
     # Replace inline math \( ... \) with $ ... $
-    cleaned = re.sub(r"\\\(", "$", text)
-    cleaned = re.sub(r"\\\)", "$", text)
+    cleaned = re.sub(r"\\\(", "$", cleaned)
+    cleaned = re.sub(r"\\\)", "$", cleaned)
 
     return cleaned.strip()
 
