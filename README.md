@@ -1,7 +1,7 @@
 ### **Live demo:**
 **https://chat-with-pdf-app-nbe2gmyd8cf9pcsastsxqx.streamlit.app/**
 
-# 🤖 Agentic RAG System: Intelligent PDF Chatbot
+# 🤖 Agentic RAG System: 📄Chat with your PDF
 
 An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with Streamlit, LangChain, and Hugging Face. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy DeepSeek-R1.
 
@@ -15,7 +15,6 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
     Local Embeddings: Efficient document indexing using sentence-transformers running locally on your CPU for better privacy and lower latency.
 
 ## Technology Stack
-
     Frontend: Streamlit
     Orchestration: LangChain (v1.0 patterns)
     Vector Database: FAISS (Facebook AI Similarity Search)
@@ -23,36 +22,36 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
     LLM Hosting: Hugging Face Inference Endpoints
 
 ## Getting Started
-1. Prerequisites
-
+1. Prerequisites-
     Python 3.9+
     A Hugging Face Account and API Token (with 'Read' access).
 
 2. Installation
+    Clone the repository and install the dependencies:
 
-Clone the repository and install the dependencies:
+    **Bash**
 
-**Bash**
-    `git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
-    cd agentic-rag-system
-    pip install -r requirements.txt
-    `
+        `git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
+        cd agentic-rag-system
+        pip install -r requirements.txt
+        `
 
 3. Configuration
-
-The app uses Streamlit's secret management. Create a folder named .streamlit in your root directory and add a secrets.toml file:
+    
+    The app uses Streamlit's secret management. Create a folder named .streamlit in your root directory and add a secrets.toml file:
 
 **Ini, TOML**
+
     `#.streamlit/secrets.toml
     HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"`
 
 4. Running the App
 
-Launch the Streamlit server:
+    Launch the Streamlit server:
 
+    **Bash**
 
-**Bash**
-    `streamlit run app.py`
+        `streamlit run app.py`
 
 ## How to Use
 
