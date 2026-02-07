@@ -52,8 +52,17 @@ def clean_response(text):
     Removes <think>...</think> tags and their content from the text.
     Also removes any leading whitespace left behind.
     """
-    # Use DOTALL so the dot matches newlines within the tags
+    # 1. Remove <think> tags
     cleaned = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+    # 2. Fix LaTeX Delimiters for Streamlit
+    # Replace block math \[ ... \] with $$ ... $$
+    cleaned = re.sub(r"\\\[", "$$", text)
+    cleaned = re.sub(r"\\\]", "$$", text)
+
+    # Replace inline math \( ... \) with $ ... $
+    cleaned = re.sub(r"\\\(", "$", text)
+    cleaned = re.sub(r"\\\)", "$", text)
+
     return cleaned.strip()
 
 
