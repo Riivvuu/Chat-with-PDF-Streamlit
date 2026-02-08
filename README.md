@@ -38,9 +38,9 @@ An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system bu
 
 3. Configuration
     Create a .streamlit/secrets.toml file in the project folder and add your Hugging Face API token:
-**Ini, TOML**
+    **Ini, TOML**
 
-    HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"
+        HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"
 
 4. Running the App
     Launch the Streamlit server:
