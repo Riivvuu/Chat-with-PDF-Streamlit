@@ -1,5 +1,5 @@
-### **Live demo:**
-**https://chat-with-pdf-app-nbe2gmyd8cf9pcsastsxqx.streamlit.app/**
+## **Live demo:**
+### **https://chat-with-pdf-app-nbe2gmyd8cf9pcsastsxqx.streamlit.app/**
 
 # 🤖 Agentic RAG System: 📄Chat with your PDF
 
@@ -31,10 +31,10 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
 
     **Bash**
 
-        `git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
+        git clone https://github.com/Riivvuu/Chat-with-PDF-Streamlit
         cd agentic-rag-system
         pip install -r requirements.txt
-        `
+        
 
 3. Configuration
     
@@ -42,8 +42,8 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
 
 **Ini, TOML**
 
-    `#.streamlit/secrets.toml
-    HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"`
+    #.streamlit/secrets.toml
+    HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"
 
 4. Running the App
 
@@ -51,7 +51,7 @@ An advanced, agent-driven Retrieval-Augmented Generation (RAG) system built with
 
     **Bash**
 
-        `streamlit run app.py`
+        streamlit run app.py
 
 ## How to Use
 
