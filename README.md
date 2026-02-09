@@ -3,7 +3,7 @@
 
 # 🤖 Agentic RAG System: 📄Chat with your PDF
 
-An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system built with Streamlit, LangChain, Hugging Face, and GroqCloud API. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy DeepSeek-R1.
+An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system built with Streamlit, LangChain, Hugging Face, and GroqCloud. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy gpt-oss.
 
 ## Key Features
 
@@ -20,13 +20,12 @@ An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system bu
 * Orchestration: LangChain (v1.0 patterns)
 * Vector Database: FAISS (Facebook AI Similarity Search)
 * Embeddings: all-MiniLM-L6-v2 (Local)
-* LLM Hosting: GroqCloud
+* LLM Hosting: ChatGroq
 
 ## Local Setup
 1. Prerequisites-
     Python 3.9+
-    A Hugging Face Account and API Token (with 'Read' access).
-
+    A GroqCloud account and API Key (available for free at console.groq.com)
 2. Installation
     Clone the repository and install the dependencies:
     **Bash**
