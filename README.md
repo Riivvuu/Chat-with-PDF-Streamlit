@@ -3,12 +3,12 @@
 
 # 🤖 Agentic RAG System: 📄Chat with your PDF
 
-An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system built with Streamlit, LangChain, and Hugging Face. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy DeepSeek-R1.
+An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system built with Streamlit, LangChain, Hugging Face, and GroqCloud API. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy DeepSeek-R1.
 
 ## Key Features
 
-* Multi-Model Selection: Switch between Qwen 2.5 for fast responses and DeepSeek-R1 for deep reasoning tasks.
-* Reasoning Transparency: View the AI's internal "thought process" (Chain-of-Thought) when using DeepSeek models.
+* Multi-Model Selection: Switch between llama-4 for fast responses, qwen 3 for balanced tasks and gpt-oss-120b for deep reasoning tasks.
+* Reasoning Transparency: View the AI's internal "thought process" (Chain-of-Thought) when using gpt-oss-120b models.
 * Agentic Retrieval: Uses a "History-Aware Retriever" that rephrases user queries based on conversation context to ensure the AI always finds the most relevant information.
 * Source Citation: The assistant explicitly mentions which document it is referencing.
 * Document Prioritization: Select a "Primary Document" to give higher weight to specific sources during the search process.
@@ -20,7 +20,7 @@ An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system bu
 * Orchestration: LangChain (v1.0 patterns)
 * Vector Database: FAISS (Facebook AI Similarity Search)
 * Embeddings: all-MiniLM-L6-v2 (Local)
-* LLM Hosting: Hugging Face Inference Endpoints
+* LLM Hosting: GroqCloud
 
 ## Local Setup
 1. Prerequisites-
@@ -37,10 +37,10 @@ An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system bu
         
 
 3. Configuration
-    Create a .streamlit/secrets.toml file in the project folder and add your Hugging Face API token:
+    Create a .streamlit/secrets.toml file in the project folder and add your GroqCloud API token:
     **Ini, TOML**
 
-        HUGGINGFACEHUB_API_TOKEN = "your_huggingface_token_here"
+        GROQ_API_KEY = "your_GroqCloud_API_Key_here"
 
 4. Running the App
     Launch the Streamlit server:

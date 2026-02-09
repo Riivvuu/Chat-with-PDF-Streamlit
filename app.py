@@ -2,11 +2,8 @@ import streamlit as st
 import re
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import (
-    HuggingFaceEmbeddings,
-    HuggingFaceEndpoint,
-    ChatHuggingFace,
-)
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_groq import ChatGroq
 from langchain_core.documents import Document
 from langchain_classic.chains import (
     create_history_aware_retriever,
@@ -74,9 +71,9 @@ def parse_response(text):
 with st.sidebar:
     st.title("🤖 Agentic RAG System")
     model_options = {
-        "Balanced (Recommended)": "Qwen/Qwen2.5-7B-Instruct",
-        "Deep Thinker (Slower)": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-        "Fast & Lightweight": "Qwen/Qwen2.5-1.5B-Instruct",
+        "Balanced (Recommended)": "qwen/qwen3-32b",
+        "Deep Thinker (Slower)": "openai/gpt-oss-120b",
+        "Fast & Lightweight": "meta-llama/llama-4-scout-17b-16e-instruct",
     }
 
     def reset_conversation():
@@ -91,9 +88,9 @@ with st.sidebar:
     model_choice = model_options[selected_assistant]
     # Error handling for secrets to prevent crash if not set
     try:
-        api_token = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+        api_token = st.secrets["GROQ_API_KEY"]
     except KeyError:
-        st.error("Missing HUGGINGFACEHUB_API_TOKEN in st.secrets")
+        st.error("Missing GROQ_API_KEY in st.secrets")
         st.stop()
     st.divider()
 
@@ -162,33 +159,28 @@ def get_vector_store(documents):
 
 
 @st.cache_resource
-def get_llm_chain(repo_id, hf_token):
+def get_llm_chain(model_id, api_key):
     """
-    Initialize LLM and Chain. Cached to prevent reloading on every chat message.
+    Initialize Groq LLM with settings optimized for model type. Cached to prevent reloading on every chat message.
     """
-    # 1. Initialize Endpoint
-    # Explicitly setting task="conversational" because Qwen 2.5 on the API
-    # rejects the default 'text-generation' task check.
-    # Adjusting parameters based on model type
-    if "deepseek" in repo_id.lower():
-        # DeepSeek R1 requires higher temperature and massive token limit for thinking
+    effort = None
+    # Reasoning models need "room to breathe"
+    if "gpt-oss" in model_id.lower() or "qwen3" in model_id.lower():
+        effort = "high" if "gpt-oss" in model_id.lower() else "default"
+        max_tokens = 8192  # Massive limit for thinking + answer
         temp = 0.6
-        max_tokens = 4096
     else:
-        # Standard models (Qwen, Llama) work best with lower temp
+        # Standard models work best with lower temp and standard limits
         temp = 0.3
-        max_tokens = 1024
-    llm = HuggingFaceEndpoint(
-        repo_id=repo_id,
-        huggingfacehub_api_token=hf_token,
-        temperature=temp,
-        max_new_tokens=max_tokens,
-        task="conversational",
-        return_full_text=False,
-    )
+        max_tokens = 1024  # Lower limit for faster, cost-efficient responses
 
-    # 2. Wrapping in Chat Interface
-    chat_model = ChatHuggingFace(llm=llm)
+    chat_model = ChatGroq(
+        model_name=model_id,
+        api_key=api_key,
+        temperature=temp,
+        max_tokens=max_tokens,
+        reasoning_effort=effort,
+    )
     return chat_model
 
 
@@ -321,7 +313,7 @@ if user_query:
 
                 # If we found thinking content (DeepSeek behavior), show it in an expander
                 if thinking:
-                    with st.expander("🧠 DeepSeek Thought Process"):
+                    with st.expander("🧠 Model  Thought Process"):
                         st.write(thinking)
                 st.write(final_answer)
 
