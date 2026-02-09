@@ -290,6 +290,7 @@ if user_query:
 
         # Generating Response
         with st.chat_message("assistant"):
+            message_placeholder = st.empty()
             with st.spinner("Thinking..."):
                 # Getting Cached LLM
                 chat_model = get_llm_chain(model_choice, api_token)
