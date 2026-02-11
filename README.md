@@ -1,5 +1,5 @@
 ## **Live demo:**
-### **https://chat-with-pdf-app-nbe2gmyd8cf9pcsastsxqx.streamlit.app/**
+### **https://riivvuu-chat-with-pdf-streamlit-app-uex2oh.streamlit.app/**
 
 # Agentic RAG System: Chat with your PDF
 
