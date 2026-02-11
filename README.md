@@ -1,7 +1,7 @@
 ## **Live demo:**
 ### **https://chat-with-pdf-app-nbe2gmyd8cf9pcsastsxqx.streamlit.app/**
 
-# 🤖 Agentic RAG System: 📄Chat with your PDF
+# Agentic RAG System: Chat with your PDF
 
 An advanced, agent-driven Retrieval-Augmented Generation (Agentic RAG) system built with Streamlit, LangChain, Hugging Face, and GroqCloud API. This application allows users to upload multiple PDF documents and engage in a context-aware conversation with specialized AI models, including the reasoning-heavy gpt-oss.
 
