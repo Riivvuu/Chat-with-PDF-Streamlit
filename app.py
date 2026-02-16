@@ -1,5 +1,5 @@
 import streamlit as st
-import st_copy_to_clipboard
+from st_copy_to_clipboard import st_copy_to_clipboard
 import re
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
