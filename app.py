@@ -1,4 +1,5 @@
 import streamlit as st
+import st_copy_to_clipboard
 import re
 from pypdf import PdfReader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -277,6 +278,7 @@ for message in st.session_state.chat_history:
     elif isinstance(message, AIMessage):
         with st.chat_message("assistant"):
             st.write(message.content)
+            st_copy_to_clipboard(message.content)
 
 # Chat Logic
 user_query = st.chat_input("Ask a question...")
@@ -317,6 +319,7 @@ if user_query:
                     with st.expander("🧠 Model  Thought Process"):
                         st.write(thinking)
                 st.write(final_answer)
+                st_copy_to_clipboard(final_answer)
 
             st.session_state.chat_history.extend(
                 [HumanMessage(content=user_query), AIMessage(content=final_answer)]
