@@ -168,7 +168,7 @@ def get_llm_chain(model_id, api_key):
     # Reasoning models need "room to breathe"
     if "gpt-oss" in model_id.lower() or "qwen3" in model_id.lower():
         effort = "high" if "gpt-oss" in model_id.lower() else "default"
-        max_tokens = 8192  # Massive limit for thinking + answer
+        max_tokens = 4000  # Massive limit for thinking + answer
         temp = 0.6
     else:
         # Standard models work best with lower temp and standard limits
@@ -181,12 +181,13 @@ def get_llm_chain(model_id, api_key):
         temperature=temp,
         max_tokens=max_tokens,
         reasoning_effort=effort,
-    )
+        service_tier="auto",
+    ).with_retry(stop_after_attempt=3)
     return chat_model
 
 
 def create_rag_pipeline(chat_model, vectorstore, priority_doc_name):
-    retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
     # Contextualize Question Prompt
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
