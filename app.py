@@ -181,7 +181,6 @@ def get_llm_chain(model_id, api_key):
         temperature=temp,
         max_tokens=max_tokens,
         reasoning_effort=effort,
-        service_tier="auto",
     ).with_retry(stop_after_attempt=3)
     return chat_model
 
